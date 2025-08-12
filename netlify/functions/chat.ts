@@ -3,79 +3,85 @@ import { getDeployStore } from "@netlify/blobs";
 import OpenAI from "openai";
 
 const CHAT_KEY = "current-chat";
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-export default async function(req: Request, context: Context) {
+export default async function (req: Request, _ctx: Context) {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
   try {
     const { message, newConversation } = await req.json();
-    const store = getDeployStore("chat-history");
 
+    const store = getDeployStore({ name: "chat-history" });
 
     if (newConversation) {
       await store.setJSON(CHAT_KEY, []);
-      return new Response(JSON.stringify({ success: true }));
+      return new Response("OK", { status: 200 });
     }
 
-    if (!message) {
+    if (!message || typeof message !== "string" || !message.trim()) {
       return new Response("Message is required", { status: 400 });
     }
 
-    // Get history and update with user message
-    const history = (await store.get(CHAT_KEY, { type: "json" })) as ChatMessage[] || [];
-    const updatedHistory = [...history, { role: "user", content: message }];
+    const history =
+      (await store.getJSON<ChatMessage[]>(CHAT_KEY)) ?? [];
 
-    // Stream the AI response
+    const updatedHistory: ChatMessage[] = [
+      ...history,
+      { role: "user", content: message.trim() },
+    ];
+
     const stream = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: MODEL,
       messages: updatedHistory,
+      temperature: 0.2,
       stream: true,
     });
 
     return new Response(
       new ReadableStream({
         async start(controller) {
-          // Track complete assistant response
-          let assistantMessage = '';
+          const enc = new TextEncoder();
+          let assistant = "";
 
-          // Process each chunk from the AI stream
-          for await (const chunk of stream) {
-            const text = chunk.choices[0]?.delta?.content || "";
-            assistantMessage += text;
-            // Send chunk to client immediately for real-time display
-            controller.enqueue(new TextEncoder().encode(text));
+          try {
+            for await (const chunk of stream) {
+              const delta = chunk.choices?.[0]?.delta?.content ?? "";
+              if (delta) {
+                assistant += delta;
+                controller.enqueue(enc.encode(delta));
+              }
+            }
+
+            await store.setJSON(CHAT_KEY, [
+              ...updatedHistory,
+              { role: "assistant", content: assistant },
+            ]);
+          } finally {
+            controller.close();
           }
-
-          // Save complete conversation history to blob storage
-          await store.setJSON(CHAT_KEY, [
-            ...updatedHistory,
-            { role: "assistant", content: assistantMessage }
-          ]);
-          // Close stream after saving
-          controller.close();
         },
       }),
       {
         headers: {
-          "Content-Type": "text/event-stream",
+          "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
         },
       }
     );
-
-  } catch (error) {
-    console.error("Error:", error);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-    });
+  } catch (err: any) {
+    console.error("Function error:", err?.message ?? err);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }
