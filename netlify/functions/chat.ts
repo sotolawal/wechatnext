@@ -49,31 +49,22 @@ export default async function (req: Request, context: Context) {
       stream: true,
     });
 
-    return new Response(
+  return new Response(
       new ReadableStream({
         async start(controller) {
-          const enc = new TextEncoder();
-          let assistantMessage = "";
-
-          try {
-            for await (const chunk of stream) {
-              const delta = chunk.choices?.[0]?.delta?.content ?? "";
-              if (delta) {
-                assistantMessage += delta;
-                controller.enqueue(enc.encode(delta));
-              }
-            }
-
-            await store.set(
+          let assistantMessage = '';
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content || "";
+            assistantMessage += text;
+            controller.enqueue(new TextEncoder().encode(text));
+          }
+             await store.set(
               CHAT_KEY,
               JSON.stringify([
                 ...updatedHistory,
                 { role: "assistant", content: assistantMessage },
-              ])
-            );
-          } finally {
-            controller.close();
-          }
+              ]);
+          controller.close();
         },
       }),
       {
