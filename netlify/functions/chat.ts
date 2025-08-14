@@ -3,7 +3,7 @@ import { getDeployStore } from "@netlify/blobs";
 import OpenAI from "openai";
 
 const CHAT_KEY = "current-chat";
-const MODEL = process.env.OPENAI_MODEL ?? "o3-2025-04-16";
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-oss-120b";
 
 type Role = "user" | "assistant";
 interface ChatMessage {
