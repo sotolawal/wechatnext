@@ -13,7 +13,7 @@ interface ChatMessage {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (req: Request, context: Context) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
