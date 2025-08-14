@@ -3,17 +3,15 @@ import { getDeployStore } from "@netlify/blobs";
 import OpenAI from "openai";
 
 const CHAT_KEY = "current-chat";
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const MODEL = process.env.OPENAI_MODEL ?? "gpt-5";
-
+type Role = "user" | "assistant";
 interface ChatMessage {
-  role: "user" | "assistant";
+  role: Role;
   content: string;
 }
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function (req: Request, _ctx: Context) {
   if (req.method !== "POST") {
@@ -22,12 +20,15 @@ export default async function (req: Request, _ctx: Context) {
 
   try {
     const { message, newConversation } = await req.json();
-
     const store = getDeployStore({ name: "chat-history" });
 
     if (newConversation) {
-      await store.setJSON(CHAT_KEY, []);
-      return new Response("OK", { status: 200 });
+      // clear conversation
+      await store.set(CHAT_KEY, JSON.stringify([]));
+      return new Response("OK", {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
 
     if (!message || typeof message !== "string" || !message.trim()) {
@@ -35,7 +36,8 @@ export default async function (req: Request, _ctx: Context) {
     }
 
     const history =
-      (await store.getJSON<ChatMessage[]>(CHAT_KEY)) ?? [];
+      ((await store.get(CHAT_KEY, { type: "json" })) as ChatMessage[] | null) ??
+      [];
 
     const updatedHistory: ChatMessage[] = [
       ...history,
@@ -64,10 +66,13 @@ export default async function (req: Request, _ctx: Context) {
               }
             }
 
-            await store.setJSON(CHAT_KEY, [
-              ...updatedHistory,
-              { role: "assistant", content: assistant },
-            ]);
+            await store.set(
+              CHAT_KEY,
+              JSON.stringify([
+                ...updatedHistory,
+                { role: "assistant", content: assistant },
+              ])
+            );
           } finally {
             controller.close();
           }
