@@ -47,7 +47,6 @@ export default async function (req: Request, _ctx: Context) {
     const stream = await openai.chat.completions.create({
       model: MODEL,
       messages: updatedHistory,
-      temperature: 0.2,
       stream: true,
     });
 
@@ -55,13 +54,13 @@ export default async function (req: Request, _ctx: Context) {
       new ReadableStream({
         async start(controller) {
           const enc = new TextEncoder();
-          let assistant = "";
+          let assistantMessage = "";
 
           try {
             for await (const chunk of stream) {
               const delta = chunk.choices?.[0]?.delta?.content ?? "";
               if (delta) {
-                assistant += delta;
+                assistantMessage += delta;
                 controller.enqueue(enc.encode(delta));
               }
             }
@@ -70,7 +69,7 @@ export default async function (req: Request, _ctx: Context) {
               CHAT_KEY,
               JSON.stringify([
                 ...updatedHistory,
-                { role: "assistant", content: assistant },
+                { role: "assistant", content: assistantMessage },
               ])
             );
           } finally {
@@ -82,6 +81,7 @@ export default async function (req: Request, _ctx: Context) {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
         },
       }
     );
