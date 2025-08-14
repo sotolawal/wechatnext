@@ -13,7 +13,7 @@ interface ChatMessage {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export const handler: Handler = async (req: Request, context: Context) => {
+export default async function (req: Request, context: Context) {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -23,7 +23,6 @@ export const handler: Handler = async (req: Request, context: Context) => {
     const store = getDeployStore({ name: "chat-history" });
 
     if (newConversation) {
-      // clear conversation
       await store.set(CHAT_KEY, JSON.stringify([]));
       return new Response("OK", {
         status: 200,
