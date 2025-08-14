@@ -63,7 +63,7 @@ export default async function (req: Request, context: Context) {
               JSON.stringify([
                 ...updatedHistory,
                 { role: "assistant", content: assistantMessage },
-              ]);
+              ]));
           controller.close();
         },
       }),
