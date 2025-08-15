@@ -92,6 +92,11 @@ export default function Chat() {
     const next = e.target.value as Effort;
     setEffort(next);
     try { localStorage.setItem("effort", next); } catch {}
+    // If on mobile and GPT-5, auto-enable so requests include reasoning_effort
+    if (isGPT5 && typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      setShowEffort(true);
+      try { localStorage.setItem('effort_enabled', '1'); } catch {}
+    }
   }
 
   // Start a brand-new conversation (create index entry and clear UI)
@@ -199,6 +204,7 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
+          model: modelId,
           ...(isGPT5 && showEffort ? { reasoning_effort: effort } : {}),
           conversationId: conversationId ?? undefined,
         }),
@@ -270,77 +276,102 @@ export default function Chat() {
   }, []);
 
     return (
-      <div className="relative flex flex-col h-full max-h=[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
+      <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
         {/* Header */}
         <div className="flex items-center justify-between px-3 md:px-6 py-3">
           <div className="w-14" /> {/* left spacer for balance */}
 
-          {/* centered controls (your selected snippet goes here) */}
-          <div className="flex items-center justify-center gap-3">
-            <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
-            <select
-              id="model"
-              value={modelId}
-              onChange={handleModelChange}
-              className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-              disabled={isLoading}
-            >
-              {!MODEL_CHOICES.some(m => m.id === modelId) && (
-                <option value={modelId}>{prettyModelLabel(modelId)}</option>
+          {/* centered controls */}
+          <div className="flex items-center justify-center gap-3 w-full">
+            {/* Desktop controls */}
+            <div className="hidden md:flex items-center justify-center gap-3">
+              <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
+              <select
+                id="model"
+                value={modelId}
+                onChange={handleModelChange}
+                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+                disabled={isLoading}
+              >
+                {!MODEL_CHOICES.some(m => m.id === modelId) && (
+                  <option value={modelId}>{prettyModelLabel(modelId)}</option>
+                )}
+                {MODEL_CHOICES.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+
+              {/* Reasoning toggle (only for GPT-5) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isGPT5) return;
+                  const next = !showEffort;
+                  setShowEffort(next);
+                  try { localStorage.setItem("effort_enabled", next ? "1" : "0"); } catch {}
+                }}
+                className={`h-9 px-3 rounded-md border text-sm
+                  ${isGPT5
+                    ? (showEffort
+                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                      : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700")
+                    : "border-zinc-800 bg-zinc-900 text-zinc-600 cursor-not-allowed"
+                  }`}
+                disabled={!isGPT5 || isLoading}
+                title={isGPT5 ? "Toggle reasoning options" : "Reasoning available only for GPT-5"}
+              >
+                Reasoning
+              </button>
+
+              {isGPT5 && showEffort && (
+                <>
+                  <label className="text-sm text-zinc-300" htmlFor="effort">Level</label>
+                  <select
+                    id="effort"
+                    value={effort}
+                    onChange={handleEffortChange}
+                    className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+                    disabled={isLoading}
+                  >
+                    {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                </>
               )}
-              {MODEL_CHOICES.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
+            </div>
 
-            {/* Reasoning toggle (only for GPT-5) */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!isGPT5) return;
-                const next = !showEffort;
-                setShowEffort(next);
-                try { localStorage.setItem("effort_enabled", next ? "1" : "0"); } catch {}
-              }}
-              className={`h-9 px-3 rounded-md border text-sm
-                ${isGPT5
-                  ? (showEffort
-                    ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                    : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700")
-                  : "border-zinc-800 bg-zinc-900 text-zinc-600 cursor-not-allowed"
-                }`}
-              disabled={!isGPT5 || isLoading}
-              title={isGPT5 ? "Toggle reasoning options" : "Reasoning available only for GPT-5"}
-            >
-              Reasoning
-            </button>
+            {/* Mobile controls */}
+            <div className="flex md:hidden items-center justify-center gap-2">
+              <label className="text-sm text-zinc-300" htmlFor="model-m">Model</label>
+              <select
+                id="model-m"
+                value={modelId}
+                onChange={handleModelChange}
+                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+                disabled={isLoading}
+              >
+                {!MODEL_CHOICES.some(m => m.id === modelId) && (
+                  <option value={modelId}>{prettyModelLabel(modelId)}</option>
+                )}
+                {MODEL_CHOICES.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
 
-            {isGPT5 && showEffort && (
-              <>
-                <label className="text-sm text-zinc-300" htmlFor="effort">Level</label>
-                <select
-                  id="effort"
-                  value={effort}
-                  onChange={handleEffortChange}
-                  className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-                  disabled={isLoading}
-                >
-                  {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-                </select>
-              </>
-            )}
+              <label className="text-sm text-zinc-300" htmlFor="effort-mobile">Reasoning</label>
+              <select
+                id="effort-mobile"
+                value={effort}
+                onChange={handleEffortChange}
+                disabled={!/^gpt-5\b/i.test(modelId) || isLoading}
+                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+              >
+                {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            </div>
           </div>
 
           {/* right cluster (New) */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={startNewConversation}
-              className="px-3 py-1.5 text-sm text-zinc-100 border border-zinc-700 rounded-lg bg-zinc-800 transition hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={isLoading}
-              type="button"
-            >
-              New
-            </button>
           </div>
         </div>
 

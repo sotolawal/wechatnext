@@ -10,7 +10,6 @@ import Sidebar from "../components/Sidebar.tsx";
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>WeChatNext</title>
-
     <!-- Dark-mode bootstrap (no flash) -->
     <script is:inline>
       (function(){ try { document.documentElement.classList.add('dark'); } catch {} })();
@@ -51,7 +50,16 @@ import Sidebar from "../components/Sidebar.tsx";
               class="px-2 py-1 text-sm rounded-md border border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
               title="Toggle sidebar"
             >☰</button>
-            <div class="text-sm text-gray-600 dark:text-zinc-300">WeChatNext</div>
+            <div class="flex items-center gap-2">
+              <div class="text-sm text-zinc-300">WeChatNext</div>
+              <button
+                id="new-chat-global"
+                type="button"
+                class="ml-2 px-3 py-1.5 text-sm rounded-md border border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+              >
+                New
+              </button>
+            </div>
           </div>
         </header>
 
@@ -63,7 +71,7 @@ import Sidebar from "../components/Sidebar.tsx";
       <!-- Mobile sidebar drawer -->
 <div id="drawer-backdrop" class="md:hidden fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-40"></div>
 <aside id="drawer"
-  class="md:hidden fixed left-0 top-0 h-[100dvh] w-80 max-w-[85vw] translate-x-[-100%] bg-zinc-900 border-r border-zinc-800 transition-transform duration-200 ease-out overflow-y-auto z-50"
+  class="md:hidden fixed left-0 top-0 h-[100dvh] w-80 max-w-[85vw] -translate-x-full bg-zinc-900 border-r border-zinc-800 transition-transform duration-200 ease-out overflow-y-auto z-50"
   style="padding-bottom: env(safe-area-inset-bottom)">
   <div class="h-12 border-b border-zinc-800 flex items-center px-3">
     <div class="text-sm text-zinc-300">Conversations</div>
@@ -80,47 +88,58 @@ import Sidebar from "../components/Sidebar.tsx";
 
     <!-- Behavior: theme + sidebar collapse (persisted) -->
    <script is:inline>
-(function () {
-  try {
-    // Desktop sidebar collapse (md+)
-    const grid = document.getElementById('appgrid');
-    const deskBtn = document.getElementById('toggle-sidebar');
-    const KEY = 'sidebar-collapsed';
-    function applyCollapsed(c){ grid?.classList.toggle('is-collapsed', !!c); }
-    let collapsed = false;
-    try { collapsed = localStorage.getItem(KEY) === '1'; } catch {}
-    applyCollapsed(collapsed);
-    deskBtn?.addEventListener('click', () => {
-      const isMobile = window.matchMedia('(max-width: 767px)').matches;
-      if (isMobile) {
-        openDrawer();
-      } else {
+    (function () {
+      // Desktop sidebar collapse (md+)
+      const grid = document.getElementById('appgrid');
+      const deskBtn = document.getElementById('toggle-sidebar');
+      const KEY = 'sidebar-collapsed';
+      function applyCollapsed(c){ grid?.classList.toggle('is-collapsed', !!c); }
+      let collapsed = false;
+      try { collapsed = localStorage.getItem(KEY) === '1'; } catch {}
+      applyCollapsed(collapsed);
+
+      // Mobile drawer elements
+      const drawer = document.getElementById('drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+      const closeBtn = document.getElementById('drawer-close');
+
+      function openDrawer(){ drawer?.classList.remove('-translate-x-full'); backdrop?.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+      function closeDrawer(){ drawer?.classList.add('-translate-x-full'); backdrop?.classList.add('hidden'); document.body.style.overflow = ''; }
+
+      // Toggle button handles desktop collapse or opens drawer on mobile
+      deskBtn?.addEventListener('click', () => {
+        const isMobile = window.matchMedia('(max-width: 767px)').matches;
+        if (isMobile) return openDrawer();
         collapsed = !collapsed; applyCollapsed(collapsed);
         try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch {}
-      }
-    });
+      });
 
-    // Mobile drawer
-    const drawer = document.getElementById('drawer');
-    const backdrop = document.getElementById('drawer-backdrop');
-    const close = document.getElementById('drawer-close');
-    function lockScroll(lock){ document.body.style.overflow = lock ? 'hidden' : ''; }
-    function openDrawer(){
-      if (!drawer || !backdrop) return;
-      drawer.style.transform = 'translateX(0)';
-      backdrop.classList.remove('hidden');
-      lockScroll(true);
-    }
-    function closeDrawer(){
-      if (!drawer || !backdrop) return;
-      drawer.style.transform = 'translateX(-100%)';
-      backdrop.classList.add('hidden');
-      lockScroll(false);
-    }
-    backdrop?.addEventListener('click', closeDrawer);
-    close?.addEventListener('click', closeDrawer);
-  } catch {}
-})();
-</script>
+      backdrop?.addEventListener('click', closeDrawer);
+      closeBtn?.addEventListener('click', closeDrawer);
+
+      // Global New button beside title
+      const newBtn = document.getElementById('new-chat-global');
+      newBtn?.addEventListener('click', async () => {
+        try {
+          const model = localStorage.getItem('model') || 'gpt-5-2025-08-07';
+          const res = await fetch('/.netlify/functions/conversations', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'New chat', model })
+          });
+          const data = await res.json().catch(() => ({}));
+          const id = data?.id;
+          if (id) {
+            localStorage.setItem('conversationId', id);
+            window.dispatchEvent(new CustomEvent('open-conversation', { detail: { id } }));
+            window.dispatchEvent(new CustomEvent('conversations-updated'));
+            closeDrawer();
+          }
+        } catch (e) { console.error('new chat failed', e); }
+      });
+
+      // Close drawer after selecting a conversation
+      window.addEventListener('open-conversation', () => closeDrawer());
+    })();
+  </script>
   </body>
 </html>
