@@ -1,10 +1,40 @@
 // netlify/functions/conversations.ts
 import type { Context } from "@netlify/functions";
-import { getStore } from "@netlify/blobs";
+
+import { getStore, getDeployStore } from "@netlify/blobs";
+
+function makeStore(name: string) {
+  // Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
+  const ctx = process.env.NETLIFY_BLOBS_CONTEXT;
+  if (ctx) {
+    try {
+      const parsed = JSON.parse(ctx);
+      const { siteID, token } = parsed || {};
+      if (siteID && token) {
+        return getStore({ name, siteID, token });
+      }
+    } catch (_) {
+      // fall through
+    }
+  }
+  // Fallback to deploy store inside Netlify Functions runtime
+  const deployID = process.env.DEPLOY_ID || process.env.NETLIFY_DEPLOY_ID;
+  if (deployID) {
+    return getDeployStore({ name, deployID });
+  }
+  // As a last resort, try standard durable store without explicit context (works on some plans)
+  try {
+    return getStore({ name });
+  } catch (_) {
+    throw new Error(
+      "Netlify Blobs not configured. Run with `netlify dev` locally, or ensure NETLIFY_BLOBS_CONTEXT or DEPLOY_ID is set."
+    );
+  }
+}
 
 interface ConvMeta { id: string; title: string; model: string; createdAt: number; updatedAt: number }
 
-const store = getStore({ name: "chat" });
+const store = makeStore("chat");
 const INDEX_KEY = "conversations/index.json";
 
 async function loadIndex(): Promise<ConvMeta[]> {

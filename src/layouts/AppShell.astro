@@ -9,7 +9,7 @@ import Sidebar from "../components/Sidebar.tsx";
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>WeChatNext</title>
 
     <!-- Dark-mode bootstrap (no flash) -->
@@ -28,7 +28,7 @@ import Sidebar from "../components/Sidebar.tsx";
 
   <body class="h-full bg-zinc-900 text-zinc-100">
     <!-- App grid -->
-    <div id="appgrid" class="appgrid h-screen w-full grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-in-out">
+    <div id="appgrid" class="appgrid h-[100dvh] w-full grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-in-out">
 
       <!-- Sidebar -->
       <aside id="sidebar"
@@ -61,33 +61,67 @@ import Sidebar from "../components/Sidebar.tsx";
           <slot />
         </section>
       </main>
+      <!-- Mobile sidebar drawer -->
+<div id="drawer-backdrop" class="md:hidden fixed inset-0 bg-black/40 backdrop-blur-sm hidden"></div>
+<aside id="drawer"
+  class="md:hidden fixed left-0 top-0 h-[100dvh] w-80 max-w-[85vw] translate-x-[-100%] bg-zinc-900 border-r border-zinc-800 transition-transform duration-200 ease-out overflow-y-auto"
+  style="padding-bottom: env(safe-area-inset-bottom)">
+  <div class="h-12 border-b border-zinc-800 flex items-center px-3">
+    <div class="text-sm text-zinc-300">Conversations</div>
+    <button id="drawer-close" class="ml-auto rounded px-2 py-1 border border-zinc-700 text-sm">Close</button>
+  </div>
+  <div class="p-2">
+    <!-- Reuse the same sidebar component -->
+    <div class="flex-1">
+      <Sidebar client:load />
+    </div>
+  </div>
+</aside>
     </div>
 
     <!-- Behavior: theme + sidebar collapse (persisted) -->
    <script is:inline>
-    (function(){
-      try {
-        // SIDEBAR COLLAPSE (persisted)
-        const grid = document.getElementById('appgrid');
-        const btn  = document.getElementById('toggle-sidebar');
-        const KEY  = 'sidebar-collapsed';
+(function () {
+  try {
+    // Desktop sidebar collapse (md+)
+    const grid = document.getElementById('appgrid');
+    const deskBtn = document.getElementById('toggle-sidebar');
+    const KEY = 'sidebar-collapsed';
+    function applyCollapsed(c){ grid?.classList.toggle('is-collapsed', !!c); }
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(KEY) === '1'; } catch {}
+    applyCollapsed(collapsed);
+    deskBtn?.addEventListener('click', () => {
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      if (isMobile) {
+        openDrawer();
+      } else {
+        collapsed = !collapsed; applyCollapsed(collapsed);
+        try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch {}
+      }
+    });
 
-        function applyCollapsed(collapsed){
-          if (!grid) return;
-          grid.classList.toggle('is-collapsed', collapsed);
-        }
-
-        let collapsed = false;
-        try { collapsed = localStorage.getItem(KEY) === '1'; } catch {}
-        applyCollapsed(collapsed);
-
-        btn?.addEventListener('click', () => {
-          collapsed = !collapsed;
-          applyCollapsed(collapsed);
-          try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch {}
-        });
-      } catch {}
-    })();
-  </script>
+    // Mobile drawer
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('drawer-backdrop');
+    const close = document.getElementById('drawer-close');
+    function lockScroll(lock){ document.body.style.overflow = lock ? 'hidden' : ''; }
+    function openDrawer(){
+      if (!drawer || !backdrop) return;
+      drawer.style.transform = 'translateX(0)';
+      backdrop.classList.remove('hidden');
+      lockScroll(true);
+    }
+    function closeDrawer(){
+      if (!drawer || !backdrop) return;
+      drawer.style.transform = 'translateX(-100%)';
+      backdrop.classList.add('hidden');
+      lockScroll(false);
+    }
+    backdrop?.addEventListener('click', closeDrawer);
+    close?.addEventListener('click', closeDrawer);
+  } catch {}
+})();
+</script>
   </body>
 </html>

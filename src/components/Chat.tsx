@@ -53,7 +53,11 @@ export default function Chat() {
     const cid = typeof window !== "undefined" ? localStorage.getItem("conversationId") : null;
     if (cid) setConversationId(cid);
   }, []);
-
+    
+    function autoSize(el: HTMLTextAreaElement) {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 160) + "px"; // cap ~10 lines
+    }
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -177,8 +181,8 @@ export default function Chat() {
     );
   }
 
-  return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-5.5rem)] max-w-3xl mx-auto text-zinc-100">
+    return (
+      <div className="flex flex-col h-full max-h-[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
       {/* Header (no borders) */}
       <div className="flex justify-between items-center px-6 md:px-8 py-4 gap-3">
         <span className="text-sm text-zinc-400">
@@ -220,24 +224,29 @@ export default function Chat() {
       </div>
 
       {/* Composer (no border band) */}
-      <form onSubmit={handleSubmit} className="flex items-center gap-3 px-6 md:px-8 py-4 bg-transparent">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Type your message..."
-          className="flex-1 px-4 py-2 border border-zinc-700 rounded-lg text-base bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:bg-zinc-800 disabled:cursor-not-allowed"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-5 py-2 bg-blue-500 text-white rounded-lg shadow transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base disabled:bg-blue-300 disabled:cursor-not-allowed"
-        >
-          {isLoading ? "Sending..." : "Send"}
-        </button>
-      </form>
+          <form
+            onSubmit={handleSubmit}
+            className="sticky bottom-0 left-0 right-0 flex items-end gap-2 px-4 md:px-6 py-3 bg-zinc-900/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
+          >
+            <textarea
+              ref={inputRef as any}
+              value={input}
+              onChange={(e) => { setInput(e.target.value); autoSize(e.currentTarget); }}
+              onInput={(e) => autoSize(e.currentTarget)}
+              placeholder="Type your message…"
+              rows={1}
+              className="flex-1 max-h-40 resize-none px-3 py-2 border border-zinc-700 rounded-lg bg-zinc-800 text-zinc-100 leading-6 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-blue-300"
+            >
+              {isLoading ? "Sending…" : "Send"}
+            </button>
+          </form>
     </div>
   );
 }

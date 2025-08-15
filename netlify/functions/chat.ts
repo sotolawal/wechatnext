@@ -1,5 +1,35 @@
 import type { Context } from "@netlify/functions";
-import { getStore } from "@netlify/blobs";
+import { getStore, getDeployStore } from "@netlify/blobs";
+
+function makeStore(name: string) {
+  // Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
+  const ctx = process.env.NETLIFY_BLOBS_CONTEXT;
+  if (ctx) {
+    try {
+      const parsed = JSON.parse(ctx);
+      const { siteID, token } = parsed || {};
+      if (siteID && token) {
+        return getStore({ name, siteID, token });
+      }
+    } catch (_) {
+      // fall through to other strategies
+    }
+  }
+  // Fallback to deploy store inside Netlify Functions runtime
+  const deployID = process.env.DEPLOY_ID || process.env.NETLIFY_DEPLOY_ID;
+  if (deployID) {
+    return getDeployStore({ name, deployID });
+  }
+  // As a last resort, try standard durable store without explicit context (works on some plans)
+  try {
+    return getStore({ name });
+  } catch (_) {
+    throw new Error(
+      "Netlify Blobs not configured. Run with `netlify dev` locally, or ensure NETLIFY_BLOBS_CONTEXT or DEPLOY_ID is set."
+    );
+  }
+}
+
 import OpenAI from "openai";
 
 type Role = "user" | "assistant";
@@ -12,13 +42,8 @@ interface BodyIn {
 }
 
 const FALLBACK_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const ALLOWED_MODELS = new Set([
-  "gpt-4o-mini",
-  "gpt-4o",
-  "gpt-4.1-mini", // keep a small allowlist; expand if you use more
-]);
 
-const store = getStore({ name: "chat" });
+const store = makeStore("chat");
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function keyFor(id: string) {
@@ -56,9 +81,10 @@ export default async function (req: Request, _ctx: Context) {
     const chosenModel = (typeof model === "string" && model.trim())
       ? model.trim()
       : FALLBACK_MODEL;
-    if (!ALLOWED_MODELS.has(chosenModel)) {
+    // Light sanity check: allow any typical model id (letters, numbers, dashes, dots, underscores)
+    if (!/^[a-zA-Z0-9._-]{1,200}$/.test(chosenModel)) {
       return new Response(
-        JSON.stringify({ error: "invalid_model", message: `Model not allowed: ${chosenModel}` }),
+        JSON.stringify({ error: "invalid_model", message: "Model id has invalid characters." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
