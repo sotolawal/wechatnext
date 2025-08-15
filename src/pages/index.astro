@@ -1,8 +1,7 @@
 ---
-import "../styles/global.css";
-import Chat from '../components/Chat.tsx';
-import Layout from '../layouts/Layout.astro';
+import AppShell from "../layouts/AppShell.astro";
+import Chat from "../components/Chat.tsx";
 ---
-<Layout>
+<AppShell>
   <Chat client:load />
-</Layout>
+</AppShell>

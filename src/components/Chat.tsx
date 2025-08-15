@@ -1,31 +1,79 @@
 import { useState, useRef, useEffect } from "react";
 
-// Create a type to help differentiate the source of a message and its content
+// Message shape
 interface Message {
   role: "user" | "assistant";
   content: string;
+  ts?: number;
+}
+
+// Friendly labels shown to the user, exact IDs sent to backend
+const MODEL_CHOICES = [
+  { id: "gpt-5-2025-08-07",            label: "GPT‑5" },
+  { id: "o3-deep-research-2025-06-26", label: "o3 Deep Research" },
+  { id: "gpt-4.1-2025-04-14",          label: "GPT‑4.1" },
+] as const;
+type ModelId = (typeof MODEL_CHOICES)[number]["id"] | string;
+
+// Fallback pretty label if we ever load an unknown ID from storage
+function prettyModelLabel(id: string): string {
+  const withoutDate = id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+  if (withoutDate.startsWith("o3-")) {
+    const rest = withoutDate.split("-").slice(1).join(" ");
+    return "o3 " + rest.replace(/\b\w/g, s => s.toUpperCase());
+  }
+  if (withoutDate.startsWith("gpt-")) {
+    return withoutDate
+      .replace(/^gpt-/, "GPT-")
+      .replace(/-/g, " ")
+      .replace(/\bmini\b/i, "mini");
+  }
+  return withoutDate.replace(/-/g, " ").replace(/\b[a-z]/g, (m) => m.toUpperCase());
 }
 
 export default function Chat() {
-  // We're storing our messages in an array in state so we can deliver structured conversation to Blob storage
+  // Conversation + UI state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [hasContext, setHasContext] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [modelId, setModelId] = useState<ModelId>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("model") : null;
+    return saved || MODEL_CHOICES[0].id;
+  });
 
-  // These refs allow us to manage state for the input & scroll view
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function scrollToBottom() {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }
+  // Effects
+  useEffect(() => {
+    // restore conversation id if present
+    const cid = typeof window !== "undefined" ? localStorage.getItem("conversationId") : null;
+    if (cid) setConversationId(cid);
+  }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading) inputRef.current?.focus();
+  }, [isLoading]);
+
+  // Handlers
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setInput(e.target.value);
   }
 
-  // Send a boolean that will clear the conversation's history
+  function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value as ModelId;
+    setModelId(next);
+    try { localStorage.setItem("model", next); } catch {}
+  }
+
+  // Start a brand-new conversation (clear history & id)
   async function startNewConversation() {
     try {
       await fetch("/.netlify/functions/chat", {
@@ -33,20 +81,19 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newConversation: true }),
       });
+    } catch (err) {
+      console.error("Error starting new conversation:", err);
+    } finally {
       setMessages([]);
       setHasContext(false);
-    } catch (error) {
-      console.error("Error starting new conversation:", error);
+      setConversationId(null);
+      try { localStorage.removeItem("conversationId"); } catch {}
     }
   }
 
-  /**
-   * Processes a streamed response from our API, updating the messages state
-   * incrementally as chunks of the response arrive. Creates an empty assistant
-   * message first, then updates it with incoming content until the stream ends.
-   */
   async function processStreamedResponse(reader: ReadableStreamDefaultReader<Uint8Array>) {
     let assistantMessage = "";
+    // push a placeholder assistant message to stream into
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     while (true) {
@@ -54,6 +101,8 @@ export default function Chat() {
       if (done) break;
 
       const text = new TextDecoder().decode(value);
+      if (!text) continue;
+
       assistantMessage += text;
       setMessages((prev) => [
         ...prev.slice(0, -1),
@@ -62,12 +111,12 @@ export default function Chat() {
     }
   }
 
-  // Submit user messages and invoke `processStreamedResponse` to handle our bot's returned message as it streams
+  // Submit user messages
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user" as const, content: input.trim() };
+    const userMessage: Message = { role: "user", content: input.trim(), ts: Date.now() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -76,23 +125,40 @@ export default function Chat() {
       const response = await fetch("/.netlify/functions/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({
+          message: userMessage.content,
+          model: modelId, // send exact ID
+          conversationId: conversationId ?? undefined,
+        }),
       });
 
-      if (!response.ok) throw new Error("Network response was not ok");
+      // Save conversationId from response header if provided
+      const cid = response.headers.get("X-Conversation-Id");
+      if (cid && cid !== conversationId) {
+        setConversationId(cid);
+        try { localStorage.setItem("conversationId", cid); } catch {}
+      }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader available");
+      if (!response.ok || !response.body) {
+        // Try to parse JSON error if present
+        let detail = "";
+        try { detail = await response.text(); } catch {}
+        throw new Error(`Request failed (${response.status}) ${detail}`);
+      }
 
+      const reader = response.body.getReader();
       await processStreamedResponse(reader);
       setHasContext(true);
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (error: any) {
+      console.error("Chat submit error:", error);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, there was an error processing your request.",
+          content:
+            error?.message?.includes("429") ?
+              "Quota exceeded. Please add credits or try again later." :
+              "Sorry, there was an error processing your request.",
         },
       ]);
     } finally {
@@ -100,58 +166,68 @@ export default function Chat() {
     }
   }
 
-  function renderMessage(message: Message, index: number) {
+  // Borderless, flowing message blocks
+  function renderMessage(m: Message, i: number) {
+    const roleLabel = m.role === "user" ? "You" : "Assistant";
     return (
-      <div
-        key={index}
-        className={`mb-3 px-4 py-3 rounded-2xl shadow ${
-          message.role === "user"
-            ? "ml-auto bg-blue-500 text-white"
-            : "mr-auto bg-gray-200 text-gray-900"
-        } max-w-[75%]`}
-      >
-        <strong>{message.role === "user" ? "You: " : "AI: "}</strong>
-        <span>{message.content}</span>
+      <div key={i} className="my-6 px-1">
+        <div className="text-xs text-zinc-400 uppercase tracking-wide mb-2">{roleLabel}</div>
+        <div className="whitespace-pre-wrap leading-7 text-zinc-100">{m.content}</div>
       </div>
     );
   }
 
-  // Separate  our effects to avoid unnecessary re-renders
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      inputRef.current?.focus();
-    }
-  }, [isLoading]);
-
   return (
-    <div className="flex flex-col h-[600px] border border-gray-100 rounded-3xl bg-white shadow-lg max-w-2xl mx-auto">
-      <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-        <span className="text-sm text-gray-500">
+    <div className="flex flex-col h-full max-h-[calc(100vh-5.5rem)] max-w-3xl mx-auto text-zinc-100">
+      {/* Header (no borders) */}
+      <div className="flex justify-between items-center px-6 md:px-8 py-4 gap-3">
+        <span className="text-sm text-zinc-400">
           {hasContext ? "Conversation context: On" : "New conversation"}
+          {conversationId ? ` · ${conversationId.slice(0, 8)}` : ""}
         </span>
-        <button
-          onClick={startNewConversation}
-          className="px-4 py-1.5 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
-          disabled={isLoading}>
-          New Conversation
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
+          <select
+            id="model"
+            value={modelId}
+            onChange={handleModelChange}
+            className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+            disabled={isLoading}
+          >
+            {/* Ensure current value is visible even if not in MODEL_CHOICES */}
+            {!MODEL_CHOICES.some(m => m.id === modelId) && (
+              <option value={modelId}>{prettyModelLabel(modelId)}</option>
+            )}
+            {MODEL_CHOICES.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={startNewConversation}
+            className="px-3 py-1.5 text-sm text-zinc-100 border border-zinc-700 rounded-lg bg-zinc-800 transition hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isLoading}
+            type="button"
+          >
+            New
+          </button>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+
+      {/* Messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 md:px-8 py-6">
         {messages.map(renderMessage)}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSubmit} className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+
+      {/* Composer (no border band) */}
+      <form onSubmit={handleSubmit} className="flex items-center gap-3 px-6 md:px-8 py-4 bg-transparent">
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={handleInputChange}
           placeholder="Type your message..."
-          className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 border border-zinc-700 rounded-lg text-base bg-zinc-800 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:bg-zinc-800 disabled:cursor-not-allowed"
           disabled={isLoading}
         />
         <button

@@ -1,0 +1,93 @@
+---
+import "../styles/global.css";
+import Sidebar from "../components/Sidebar.tsx";
+---
+
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>WeChatNext</title>
+
+    <!-- Dark-mode bootstrap (no flash) -->
+    <script is:inline>
+      (function(){ try { document.documentElement.classList.add('dark'); } catch {} })();
+    </script>
+
+    <style is:inline>
+      @media (min-width: 768px) {
+        .appgrid { grid-template-columns: 280px 1fr; }
+        .appgrid.is-collapsed { grid-template-columns: 0 1fr; }
+        .appgrid.is-collapsed aside { border-right-width: 0; }
+      }
+    </style>
+  </head>
+
+  <body class="h-full bg-zinc-900 text-zinc-100">
+    <!-- App grid -->
+    <div id="appgrid" class="appgrid h-screen w-full grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-in-out">
+
+      <!-- Sidebar -->
+      <aside id="sidebar"
+        class="hidden md:flex flex-col border-r border-zinc-800 bg-zinc-900/40 overflow-y-auto transition-all duration-200 ease-in-out">
+        <div class="h-14 border-b border-zinc-800"></div>
+        <div class="flex-1 overflow-y-auto">
+          <Sidebar client:load />
+        </div>
+      </aside>
+
+      <!-- Main column -->
+      <main class="flex flex-col min-h-0">
+
+        <!-- Top bar -->
+        <header class="h-14 shrink-0 border-b border-zinc-800 bg-zinc-900/40 backdrop-blur px-4 md:px-6 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <!-- Sidebar toggle -->
+            <button
+              id="toggle-sidebar"
+              type="button"
+              class="px-2 py-1 text-sm rounded-md border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              title="Toggle sidebar"
+            >☰</button>
+            <div class="text-sm text-gray-600 dark:text-zinc-300">WeChatNext</div>
+          </div>
+        </header>
+
+        <!-- Content -->
+        <section class="flex-1 min-h-0 p-3 md:p-6 overflow-hidden">
+          <slot />
+        </section>
+      </main>
+    </div>
+
+    <!-- Behavior: theme + sidebar collapse (persisted) -->
+   <script is:inline>
+    (function(){
+      try {
+        // SIDEBAR COLLAPSE (persisted)
+        const grid = document.getElementById('appgrid');
+        const btn  = document.getElementById('toggle-sidebar');
+        const KEY  = 'sidebar-collapsed';
+
+        function applyCollapsed(collapsed){
+          if (!grid) return;
+          grid.classList.toggle('is-collapsed', collapsed);
+        }
+
+        let collapsed = false;
+        try { collapsed = localStorage.getItem(KEY) === '1'; } catch {}
+        applyCollapsed(collapsed);
+
+        btn?.addEventListener('click', () => {
+          collapsed = !collapsed;
+          applyCollapsed(collapsed);
+          try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch {}
+        });
+      } catch {}
+    })();
+  </script>
+  </body>
+</html>
