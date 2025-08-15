@@ -1,11 +1,10 @@
 // netlify/functions/conversations.ts
 import type { Context } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
-const store = getStore({ name: "chat" });
 
 interface ConvMeta { id: string; title: string; model: string; createdAt: number; updatedAt: number }
 
-const store = getDeployStore({ name: "chat" });
+const store = getStore({ name: "chat" });
 const INDEX_KEY = "conversations/index.json";
 
 async function loadIndex(): Promise<ConvMeta[]> {

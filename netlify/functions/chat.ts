@@ -1,7 +1,6 @@
 import type { Context } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 import OpenAI from "openai";
-const store = getStore({ name: "chat" });
 
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; ts: number }
@@ -19,7 +18,7 @@ const ALLOWED_MODELS = new Set([
   "gpt-4.1-mini", // keep a small allowlist; expand if you use more
 ]);
 
-const store = getDeployStore({ name: "chat" });
+const store = getStore({ name: "chat" });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function keyFor(id: string) {
