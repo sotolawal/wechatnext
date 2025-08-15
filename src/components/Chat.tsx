@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // Message shape
 interface Message {
@@ -249,7 +251,19 @@ export default function Chat() {
     return (
       <div key={i} className="my-6 px-1">
         <div className="text-xs text-zinc-400 uppercase tracking-wide mb-2">{roleLabel}</div>
-        <div className="whitespace-pre-wrap leading-7 text-zinc-100">{m.content}</div>
+        <ReactMarkdown
+          className="leading-7 text-zinc-100 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_pre]:bg-zinc-900/70 [&_pre]:p-3 [&_pre]:rounded-lg [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:border-zinc-700 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300"
+          remarkPlugins={[remarkGfm]}
+          skipHtml
+          linkTarget="_blank"
+          components={{
+            a({node, ...props}) {
+              return <a {...props} rel="noopener noreferrer" className="underline hover:no-underline" />;
+            }
+          }}
+        >
+          {m.content}
+        </ReactMarkdown>
       </div>
     );
   }
