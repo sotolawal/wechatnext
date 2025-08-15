@@ -53,6 +53,7 @@ interface BodyIn {
   newConversation?: boolean;
   conversationId?: string;
   model?: string;
+  reasoning_effort?: "minimal" | "low" | "medium" | "high";
 }
 
 const FALLBACK_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
@@ -67,11 +68,28 @@ export default async function (req: Request, _ctx: Context) {
   const store = makeStore("chat", req, _ctx);
   // Health check without touching OpenAI/Blobs
   const url = new URL(req.url);
-  if (url.searchParams.get("ping") === "1") {
-    return new Response("OK", {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+
+  // Support GET to fetch a conversation's messages
+  if (req.method === "GET") {
+    const id = url.searchParams.get("id");
+    if (!id) {
+      return new Response(JSON.stringify({ error: "id required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    try {
+      const data = (await store.get(keyFor(id), { type: "json" })) as ChatMessage[] | null;
+      return new Response(JSON.stringify(data ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: "server", message: e?.message ?? String(e) }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   if (req.method !== "POST") {
@@ -89,7 +107,7 @@ export default async function (req: Request, _ctx: Context) {
   const debug = url.searchParams.get("debug") === "1";
 
   try {
-    const { message, newConversation, conversationId, model }: BodyIn = await req.json();
+    const { message, newConversation, conversationId, model, reasoning_effort }: BodyIn = await req.json();
 
     // Validate/resolve model
     const chosenModel = (typeof model === "string" && model.trim())
@@ -99,6 +117,13 @@ export default async function (req: Request, _ctx: Context) {
     if (!/^[a-zA-Z0-9._-]{1,200}$/.test(chosenModel)) {
       return new Response(
         JSON.stringify({ error: "invalid_model", message: "Model id has invalid characters." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const allowedEffort = new Set(["minimal", "low", "medium", "high"]);
+    if (typeof reasoning_effort !== "undefined" && reasoning_effort !== null && !allowedEffort.has(reasoning_effort as any)) {
+      return new Response(
+        JSON.stringify({ error: "invalid_reasoning_effort", message: "Reasoning effort must be minimal, low, medium, or high." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -141,6 +166,7 @@ export default async function (req: Request, _ctx: Context) {
         const completion = await openai.chat.completions.create({
           model: chosenModel,
           messages: updatedHistory.map(({ role, content }) => ({ role, content })),
+          ...(reasoning_effort ? { reasoning_effort } : {}),
         });
         const reply = completion.choices[0]?.message?.content ?? "";
         const ts = Date.now();
@@ -169,6 +195,7 @@ export default async function (req: Request, _ctx: Context) {
     const stream = await openai.chat.completions.create({
       model: chosenModel,
       messages: updatedHistory.map(({ role, content }) => ({ role, content })),
+      ...(reasoning_effort ? { reasoning_effort } : {}),
       stream: true,
     });
 

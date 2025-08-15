@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 type ConvMeta = { id: string; title: string; model: string; createdAt: number; updatedAt: number };
 
-export default function Sidebar() {
+export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void }) {
   const [items, setItems] = useState<ConvMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,24 +24,45 @@ export default function Sidebar() {
     }
   }
 
-  useEffect(() => { fetchList(); }, []);
-
+    useEffect(() => {
+      function onUpdated() { fetchList(); }
+      window.addEventListener("conversations-updated", onUpdated);
+      return () => window.removeEventListener("conversations-updated", onUpdated);
+    }, []);
+    
   async function newChat() {
     try {
-      await fetch("/.netlify/functions/chat", {
+      const res = await fetch("/.netlify/functions/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newConversation: true }),
+        body: JSON.stringify({ title: "New chat", model: "gpt-5-2025-08-07" }),
       });
-      localStorage.removeItem("conversationId");
-      location.reload();
+      const data = await res.json().catch(() => ({} as any));
+      const id = data?.id as string | undefined;
+      if (id) {
+        setActiveId(id);
+        try { localStorage.setItem("conversationId", id); } catch {}
+        if (onSelect) {
+          onSelect(id);
+        } else {
+          // Fallback for older pages
+          window.dispatchEvent(new CustomEvent("open-conversation", { detail: { id } }));
+        }
+      }
+      // refresh list so the new chat appears at top
+      fetchList();
     } catch {}
   }
 
   async function openChat(id: string) {
     try {
-      localStorage.setItem("conversationId", id);
-      location.reload();
+      setActiveId(id);
+      try { localStorage.setItem("conversationId", id); } catch {}
+      if (onSelect) {
+        onSelect(id);
+      } else {
+        window.dispatchEvent(new CustomEvent("open-conversation", { detail: { id } }));
+      }
     } catch {}
   }
 
@@ -55,11 +76,11 @@ export default function Sidebar() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
+      <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
         <div className="text-sm font-semibold">Conversations</div>
         <button
           type="button"
-          className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700"
+          className="px-2 py-1 text-xs rounded-md border border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
           onClick={newChat}
         >New</button>
       </div>
@@ -71,16 +92,16 @@ export default function Sidebar() {
           {items.map(item => (
             <div key={item.id} className="flex items-center gap-2">
               <a
-                className={`flex-1 block px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 ${activeId===item.id? 'bg-gray-100 dark:bg-zinc-800' : ''}`}
+                className={`flex-1 block px-3 py-2 rounded-lg hover:bg-zinc-800 ${activeId===item.id? 'bg-zinc-800' : ''}`}
                 href="#"
                 onClick={(e)=>{e.preventDefault(); openChat(item.id);}}
                 title={new Date(item.updatedAt).toLocaleString()}
               >
                 <div className="truncate">{item.title || 'Untitled'}</div>
-                <div className="text-xs text-gray-500 dark:text-zinc-400">{item.model}</div>
+                <div className="text-xs text-zinc-400">{item.model}</div>
               </a>
               <button
-                className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                className="text-xs px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800"
                 onClick={()=>deleteChat(item.id)}
                 title="Delete"
               >✕</button>
