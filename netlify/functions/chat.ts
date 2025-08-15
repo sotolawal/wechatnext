@@ -141,7 +141,6 @@ export default async function (req: Request, _ctx: Context) {
         const completion = await openai.chat.completions.create({
           model: chosenModel,
           messages: updatedHistory.map(({ role, content }) => ({ role, content })),
-          temperature: 0.2,
         });
         const reply = completion.choices[0]?.message?.content ?? "";
         const ts = Date.now();
@@ -170,7 +169,6 @@ export default async function (req: Request, _ctx: Context) {
     const stream = await openai.chat.completions.create({
       model: chosenModel,
       messages: updatedHistory.map(({ role, content }) => ({ role, content })),
-      temperature: 0.2,
       stream: true,
     });
 
