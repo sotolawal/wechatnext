@@ -1,29 +1,43 @@
 import type { Context } from "@netlify/functions";
 import { getStore, getDeployStore } from "@netlify/blobs";
 
-function makeStore(name: string) {
-  // Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
-  const ctx = process.env.NETLIFY_BLOBS_CONTEXT;
-  if (ctx) {
+function makeStore(name: string, req?: Request, ctx?: Context) {
+  // 1) Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
+  const ctxJson = process.env.NETLIFY_BLOBS_CONTEXT;
+  if (ctxJson) {
     try {
-      const parsed = JSON.parse(ctx);
+      const parsed = JSON.parse(ctxJson);
       const { siteID, token } = parsed || {};
       if (siteID && token) {
         return getStore({ name, siteID, token });
       }
-    } catch (_) {
-      // fall through to other strategies
+    } catch {
+      // fall through
     }
   }
-  // Fallback to deploy store inside Netlify Functions runtime
-  const deployID = process.env.DEPLOY_ID || process.env.NETLIFY_DEPLOY_ID;
+
+  // 2) Try to discover a deploy ID from multiple sources
+  const envDeploy =
+    process.env.DEPLOY_ID ||
+    process.env.NETLIFY_DEPLOY_ID ||
+    process.env.COMMIT_REF; // sometimes present in builds
+
+  const headerDeploy =
+    (req && (req.headers.get("x-nf-deploy-id") || req.headers.get("x-nf-runtime-deploy-id"))) || null;
+
+  // Some runtimes expose deployment on the Context object
+  // @ts-ignore - not typed on Context in all versions
+  const ctxDeploy = (ctx && ((ctx as any).deployment?.id || (ctx as any).deployID)) || null;
+
+  const deployID = headerDeploy || ctxDeploy || envDeploy;
   if (deployID) {
     return getDeployStore({ name, deployID });
   }
-  // As a last resort, try standard durable store without explicit context (works on some plans)
+
+  // 3) Fallback: attempt durable store without explicit context (works on some plans)
   try {
     return getStore({ name });
-  } catch (_) {
+  } catch {
     throw new Error(
       "Netlify Blobs not configured. Run with `netlify dev` locally, or ensure NETLIFY_BLOBS_CONTEXT or DEPLOY_ID is set."
     );
@@ -43,7 +57,6 @@ interface BodyIn {
 
 const FALLBACK_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-const store = makeStore("chat");
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function keyFor(id: string) {
@@ -51,6 +64,7 @@ function keyFor(id: string) {
 }
 
 export default async function (req: Request, _ctx: Context) {
+  const store = makeStore("chat", req, _ctx);
   // Health check without touching OpenAI/Blobs
   const url = new URL(req.url);
   if (url.searchParams.get("ping") === "1") {

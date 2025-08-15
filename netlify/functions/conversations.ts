@@ -3,29 +3,43 @@ import type { Context } from "@netlify/functions";
 
 import { getStore, getDeployStore } from "@netlify/blobs";
 
-function makeStore(name: string) {
-  // Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
-  const ctx = process.env.NETLIFY_BLOBS_CONTEXT;
-  if (ctx) {
+function makeStore(name: string, req?: Request, ctx?: Context) {
+  // 1) Prefer durable store when NETLIFY_BLOBS_CONTEXT is available
+  const ctxJson = process.env.NETLIFY_BLOBS_CONTEXT;
+  if (ctxJson) {
     try {
-      const parsed = JSON.parse(ctx);
+      const parsed = JSON.parse(ctxJson);
       const { siteID, token } = parsed || {};
       if (siteID && token) {
         return getStore({ name, siteID, token });
       }
-    } catch (_) {
+    } catch {
       // fall through
     }
   }
-  // Fallback to deploy store inside Netlify Functions runtime
-  const deployID = process.env.DEPLOY_ID || process.env.NETLIFY_DEPLOY_ID;
+
+  // 2) Try to discover a deploy ID from multiple sources
+  const envDeploy =
+    process.env.DEPLOY_ID ||
+    process.env.NETLIFY_DEPLOY_ID ||
+    process.env.COMMIT_REF; // sometimes present in builds
+
+  const headerDeploy =
+    (req && (req.headers.get("x-nf-deploy-id") || req.headers.get("x-nf-runtime-deploy-id"))) || null;
+
+  // Some runtimes expose deployment on the Context object
+  // @ts-ignore - not typed on Context in all versions
+  const ctxDeploy = (ctx && ((ctx as any).deployment?.id || (ctx as any).deployID)) || null;
+
+  const deployID = headerDeploy || ctxDeploy || envDeploy;
   if (deployID) {
     return getDeployStore({ name, deployID });
   }
-  // As a last resort, try standard durable store without explicit context (works on some plans)
+
+  // 3) Fallback: attempt durable store without explicit context (works on some plans)
   try {
     return getStore({ name });
-  } catch (_) {
+  } catch {
     throw new Error(
       "Netlify Blobs not configured. Run with `netlify dev` locally, or ensure NETLIFY_BLOBS_CONTEXT or DEPLOY_ID is set."
     );
@@ -34,10 +48,9 @@ function makeStore(name: string) {
 
 interface ConvMeta { id: string; title: string; model: string; createdAt: number; updatedAt: number }
 
-const store = makeStore("chat");
 const INDEX_KEY = "conversations/index.json";
 
-async function loadIndex(): Promise<ConvMeta[]> {
+async function loadIndex(store: ReturnType<typeof getStore> | ReturnType<typeof getDeployStore>): Promise<ConvMeta[]> {
   try {
     const raw = await store.get(INDEX_KEY, { type: "json" });
     return Array.isArray(raw) ? (raw as ConvMeta[]) : [];
@@ -47,17 +60,19 @@ async function loadIndex(): Promise<ConvMeta[]> {
   }
 }
 
-async function saveIndex(list: ConvMeta[]) {
+async function saveIndex(store: ReturnType<typeof getStore> | ReturnType<typeof getDeployStore>, list: ConvMeta[]) {
   await store.set(INDEX_KEY, JSON.stringify(list));
 }
 
 export default async function (req: Request, _ctx: Context) {
+  const store = makeStore("chat", req, _ctx);
+
   const url = new URL(req.url);
   const method = req.method.toUpperCase();
 
   try {
     if (method === "GET") {
-      const list = await loadIndex();
+      const list = await loadIndex(store);
       list.sort((a, b) => b.updatedAt - a.updatedAt);
       return new Response(JSON.stringify(list), {
         status: 200,
@@ -76,8 +91,8 @@ export default async function (req: Request, _ctx: Context) {
       const now = Date.now();
       const meta: ConvMeta = { id, title: title.slice(0, 60), model, createdAt: now, updatedAt: now };
 
-      const list = await loadIndex();
-      await saveIndex([meta, ...list]);
+      const list = await loadIndex(store);
+      await saveIndex(store, [meta, ...list]);
 
       // Create empty conversation blob if not present
       await store.set(`conversations/${id}.json`, JSON.stringify([]));
@@ -97,9 +112,9 @@ export default async function (req: Request, _ctx: Context) {
         });
       }
 
-      const list = await loadIndex();
+      const list = await loadIndex(store);
       const next = list.filter((x) => x.id !== id);
-      await saveIndex(next);
+      await saveIndex(store, next);
 
       try {
         // optional: delete the conversation blob if supported by SDK
