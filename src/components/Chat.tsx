@@ -79,14 +79,15 @@ export default function Chat() {
   useEffect(() => {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
+    
+    //Add more state/helpers
+    const [showEffort, setShowEffort] = useState<boolean>(() => {
+      const s = typeof window !== "undefined" ? localStorage.getItem("effort_enabled") : null;
+      return s === "1";
+    });
+    const isGPT5 = /^gpt-5\b/i.test(modelId);
 
-  // Handlers
-  function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value as ModelId;
-    setModelId(next);
-    try { localStorage.setItem("model", next); } catch {}
-  }
-
+//Handlers
   function handleEffortChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value as Effort;
     setEffort(next);
@@ -169,7 +170,19 @@ export default function Chat() {
         }
       }
   }
-
+ 
+    
+ //On model change, disable reasoning selection
+    function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>) {
+      const next = e.target.value as ModelId;
+      setModelId(next);
+      try { localStorage.setItem("model", next); } catch {}
+      if (!/^gpt-5\b/i.test(next)) {
+        setShowEffort(false);
+        try { localStorage.setItem("effort_enabled", "0"); } catch {}
+      }
+    }
+    
   // Submit user messages
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -186,8 +199,7 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          model: modelId,            // exact ID
-          reasoning_effort: effort,  // new field
+          ...(isGPT5 && showEffort ? { reasoning_effort: effort } : {}),
           conversationId: conversationId ?? undefined,
         }),
       });
@@ -215,7 +227,7 @@ export default function Chat() {
         {
           role: "assistant",
           content:
-            error?.message?.includes("429") ? 
+            error?.message?.includes("429") ?
               "Quota exceeded. Please add credits or try again later." :
               "Sorry, there was an error processing your request.",
         },
@@ -257,81 +269,111 @@ export default function Chat() {
     return () => window.removeEventListener("open-conversation", onOpen as any);
   }, []);
 
-  return (
-    <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
-      {/* Header: centered controls */}
-      <div className="flex items-center justify-between px-3 md:px-6 py-3">
-        <div className="w-14" /> {/* left spacer to balance the New button on the right */}
-        <div className="flex items-center justify-center gap-3">
-          <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
-          <select
-            id="model"
-            value={modelId}
-            onChange={handleModelChange}
-            className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-            disabled={isLoading}
-          >
-            {!MODEL_CHOICES.some(m => m.id === modelId) && (
-              <option value={modelId}>{prettyModelLabel(modelId)}</option>
+    return (
+      <div className="relative flex flex-col h-full max-h=[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 md:px-6 py-3">
+          <div className="w-14" /> {/* left spacer for balance */}
+
+          {/* centered controls (your selected snippet goes here) */}
+          <div className="flex items-center justify-center gap-3">
+            <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
+            <select
+              id="model"
+              value={modelId}
+              onChange={handleModelChange}
+              className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+              disabled={isLoading}
+            >
+              {!MODEL_CHOICES.some(m => m.id === modelId) && (
+                <option value={modelId}>{prettyModelLabel(modelId)}</option>
+              )}
+              {MODEL_CHOICES.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+
+            {/* Reasoning toggle (only for GPT-5) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!isGPT5) return;
+                const next = !showEffort;
+                setShowEffort(next);
+                try { localStorage.setItem("effort_enabled", next ? "1" : "0"); } catch {}
+              }}
+              className={`h-9 px-3 rounded-md border text-sm
+                ${isGPT5
+                  ? (showEffort
+                    ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                    : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700")
+                  : "border-zinc-800 bg-zinc-900 text-zinc-600 cursor-not-allowed"
+                }`}
+              disabled={!isGPT5 || isLoading}
+              title={isGPT5 ? "Toggle reasoning options" : "Reasoning available only for GPT-5"}
+            >
+              Reasoning
+            </button>
+
+            {isGPT5 && showEffort && (
+              <>
+                <label className="text-sm text-zinc-300" htmlFor="effort">Level</label>
+                <select
+                  id="effort"
+                  value={effort}
+                  onChange={handleEffortChange}
+                  className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
+                  disabled={isLoading}
+                >
+                  {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </>
             )}
-            {MODEL_CHOICES.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
+          </div>
 
-          <label className="text-sm text-zinc-300" htmlFor="effort">Reasoning</label>
-          <select
-            id="effort"
-            value={effort}
-            onChange={handleEffortChange}
-            className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-            disabled={isLoading}
-          >
-            {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
+          {/* right cluster (New) */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={startNewConversation}
+              className="px-3 py-1.5 text-sm text-zinc-100 border border-zinc-700 rounded-lg bg-zinc-800 transition hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isLoading}
+              type="button"
+            >
+              New
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={startNewConversation}
-            className="px-3 py-1.5 text-sm text-zinc-100 border border-zinc-700 rounded-lg bg-zinc-800 transition hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={isLoading}
-            type="button"
-          >
-            New
-          </button>
+
+        {/* Messages */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6">
+          {messages.map(renderMessage)}
+          <div ref={messagesEndRef} />
         </div>
-      </div>
 
-      {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6">
-        {messages.map(renderMessage)}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Composer */}
-      <form
-        onSubmit={handleSubmit}
-        className="sticky bottom-0 left-0 right-0 flex items-end gap-2 px-4 md:px-6 py-3 bg-zinc-900/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
-      >
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => { setInput(e.target.value); autoSize(e.currentTarget); }}
-          onInput={(e) => autoSize(e.currentTarget)}
-          placeholder="Type your message…"
-          rows={1}
-          className="flex-1 max-h-40 resize-none px-3 py-2 border border-zinc-700 rounded-lg bg-zinc-800 text-zinc-100 leading-6 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-blue-300"
+        {/* Composer */}
+        <form
+          onSubmit={handleSubmit}
+          className="sticky bottom-0 left-0 right-0 flex items-end gap-2 px-4 md:px-6 py-3 bg-zinc-900/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
         >
-          {isLoading ? "Sending…" : "Send"}
-        </button>
-      </form>
-    </div>
-  );
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => { setInput(e.target.value); autoSize(e.currentTarget); }}
+            onInput={(e) => autoSize(e.currentTarget)}
+            placeholder="Type your message…"
+            rows={1}
+            className="flex-1 max-h-40 resize-none px-3 py-2 border border-zinc-700 rounded-lg bg-zinc-800 text-zinc-100 leading-6 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-blue-300"
+          >
+            {isLoading ? "Sending…" : "Send"}
+          </button>
+        </form>
+      </div>
+    );
 }

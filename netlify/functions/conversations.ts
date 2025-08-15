@@ -103,6 +103,29 @@ export default async function (req: Request, _ctx: Context) {
       });
     }
 
+    if (method === "PATCH") {
+      let body: any = {};
+      try { body = await req.json(); } catch {}
+      const id = String(body?.id || "");
+      const title = String(body?.title || "").slice(0, 60);
+
+      if (!id || !title) {
+        return new Response(JSON.stringify({ error: "id and title required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const list = await loadIndex(store);
+      const idx = list.findIndex((x) => x.id === id);
+      if (idx >= 0) {
+        list[idx].title = title;
+        list[idx].updatedAt = Date.now();
+        await saveIndex(store, list);
+      }
+      return new Response("OK", { status: 200 });
+    }
+
     if (method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) {
@@ -111,30 +134,7 @@ export default async function (req: Request, _ctx: Context) {
           headers: { "Content-Type": "application/json" },
         });
       }
-        
-    if (method === "PATCH") {
-          const body = await req.json().catch(() => ({}));
-          const id = String(body?.id || "");
-          const title = String(body?.title || "").slice(0, 60);
 
-          if (!id || !title) {
-            return new Response(JSON.stringify({ error: "id and title required" }), {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-
-          const store = makeStore("chat", req, _ctx);
-          const list = await loadIndex(store);
-          const idx = list.findIndex((x) => x.id === id);
-          if (idx >= 0) {
-            list[idx].title = title;
-            list[idx].updatedAt = Date.now();
-            await saveIndex(store, list);
-          }
-          return new Response("OK", { status: 200 });
-        }
-        
       const list = await loadIndex(store);
       const next = list.filter((x) => x.id !== id);
       await saveIndex(store, next);
