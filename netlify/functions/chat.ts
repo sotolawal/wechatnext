@@ -3,31 +3,31 @@ import { getDeployStore } from "@netlify/blobs";
 import OpenAI from "openai";
 
 const CHAT_KEY = "current-chat";
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-5-2025-08-07";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-
+type Role = "user" | "assistant";
 interface ChatMessage {
-  role: "user" | "assistant";
+  role: Role;
   content: string;
 }
 
-export default async function (req: Request, _ctx: Context) {
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export default async function (req: Request, context: Context) {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
   try {
     const { message, newConversation } = await req.json();
-
     const store = getDeployStore({ name: "chat-history" });
 
     if (newConversation) {
-      await store.setJSON(CHAT_KEY, []);
-      return new Response("OK", { status: 200 });
+      await store.set(CHAT_KEY, JSON.stringify([]));
+      return new Response("OK", {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
 
     if (!message || typeof message !== "string" || !message.trim()) {
@@ -35,7 +35,8 @@ export default async function (req: Request, _ctx: Context) {
     }
 
     const history =
-      (await store.getJSON<ChatMessage[]>(CHAT_KEY)) ?? [];
+      ((await store.get(CHAT_KEY, { type: "json" })) as ChatMessage[] | null) ??
+      [];
 
     const updatedHistory: ChatMessage[] = [
       ...history,
@@ -45,38 +46,32 @@ export default async function (req: Request, _ctx: Context) {
     const stream = await openai.chat.completions.create({
       model: MODEL,
       messages: updatedHistory,
-      temperature: 0.2,
       stream: true,
     });
 
-    return new Response(
+  return new Response(
       new ReadableStream({
         async start(controller) {
-          const enc = new TextEncoder();
-          let assistant = "";
-
-          try {
-            for await (const chunk of stream) {
-              const delta = chunk.choices?.[0]?.delta?.content ?? "";
-              if (delta) {
-                assistant += delta;
-                controller.enqueue(enc.encode(delta));
-              }
-            }
-
-            await store.setJSON(CHAT_KEY, [
-              ...updatedHistory,
-              { role: "assistant", content: assistant },
-            ]);
-          } finally {
-            controller.close();
+          let assistantMessage = '';
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content || "";
+            assistantMessage += text;
+            controller.enqueue(new TextEncoder().encode(text));
           }
+             await store.set(
+              CHAT_KEY,
+              JSON.stringify([
+                ...updatedHistory,
+                { role: "assistant", content: assistantMessage },
+              ]));
+          controller.close();
         },
       }),
       {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
         },
       }
     );
