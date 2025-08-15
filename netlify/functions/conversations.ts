@@ -1,6 +1,7 @@
 // netlify/functions/conversations.ts
 import type { Context } from "@netlify/functions";
-import { getDeployStore } from "@netlify/blobs";
+import { getStore } from "@netlify/blobs";
+const store = getStore({ name: "chat" });
 
 interface ConvMeta { id: string; title: string; model: string; createdAt: number; updatedAt: number }
 

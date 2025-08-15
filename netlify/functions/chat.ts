@@ -1,6 +1,7 @@
 import type { Context } from "@netlify/functions";
-import { getDeployStore } from "@netlify/blobs";
+import { getStore } from "@netlify/blobs";
 import OpenAI from "openai";
+const store = getStore({ name: "chat" });
 
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; ts: number }
