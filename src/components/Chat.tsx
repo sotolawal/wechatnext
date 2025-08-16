@@ -347,7 +347,7 @@ export default function Chat() {
               </ReactMarkdown>
             </div>
           ) : (
-            <div className="mx-auto max-w-[72ch] px-4 sm:px-6">
+            <div className="mx-auto max-w-[88ch] px-2 sm:px-3 md:px-4">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 skipHtml
@@ -356,7 +356,7 @@ export default function Chat() {
                     <p className="whitespace-pre-wrap break-words leading-7" {...props} />
                   ),
                   table: ({ node, ...props }) => (
-                    <div className="overflow-x-auto -mx-4 sm:-mx-6 my-2">
+                      <div className="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 my-2">
                       <table className="min-w-full border-collapse text-sm" {...props} />
                     </div>
                   ),
@@ -429,7 +429,7 @@ export default function Chat() {
   }, []);
 
     return (
-      <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 w-full text-zinc-100">
+        <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] mx-auto max-w-4xl px-2 md:px-3 lg:px-4 w-full text-zinc-100">
         {/* Spacer under top bar */}
         <div className="h-2 md:h-3" />
 
@@ -507,7 +507,7 @@ export default function Chat() {
         )}
 
         {/* Messages */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6">
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 md:px-3 lg:px-4 py-6">
           {messages.map(renderMessage)}
           <div ref={messagesEndRef} />
         </div>
@@ -515,7 +515,7 @@ export default function Chat() {
         {/* Composer */}
         <form
           onSubmit={handleSubmit}
-          className="sticky bottom-0 left-0 right-0 px-4 md:px-6 pt-2 pb-3 bg-black-900/80 backdrop-blur supports-[backdrop-filter]:bg-black-900/60"
+          className="sticky bottom-0 left-0 right-0 px-2 md:px-3 lg:px-4 pt-2 pb-3 bg-black-900/80 backdrop-blur supports-[backdrop-filter]:bg-black-900/60"
           style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
         >
           <div className="w-full bg-zinc-800/90 border border-zinc-700 rounded-3xl px-3 py-2 flex items-end gap-2">
