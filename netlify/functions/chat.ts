@@ -56,7 +56,7 @@ interface BodyIn {
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
 }
 
-const FALLBACK_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const FALLBACK_MODEL = process.env.OPENAI_MODEL ?? "gpt-5-nano-2025-08-07";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
