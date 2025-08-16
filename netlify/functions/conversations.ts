@@ -85,7 +85,7 @@ export default async function (req: Request, _ctx: Context) {
       try { body = await req.json(); } catch {}
 
       const title: string = (body?.title ?? "New chat").toString();
-      const model: string = (body?.model ?? (process.env.OPENAI_MODEL ?? "gpt-4o-mini")).toString();
+      const model: string = (body?.model ?? (process.env.OPENAI_MODEL ?? "gpt-5-nano-2025-08-07")).toString();
 
       const id = crypto.randomUUID();
       const now = Date.now();
