@@ -286,48 +286,121 @@ export default function Chat() {
     return (
       <div key={i} className={`my-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
         <div
-            className={`max-w-[85%] leading-7 ${
-              isUser
-                ? "rounded-2xl px-4 py-3 shadow-sm bg-gray-500/20 text-zinc-100"
-                : "text-zinc-100"
-            }`}
+          className={`${
+            isUser
+              ? "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm bg-gray-500/20 text-zinc-100"
+              : "w-full text-zinc-100"
+          } leading-7`}
         >
-          <div className="overflow-x-auto">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              skipHtml
-              components={{
-                table: ({ node, ...props }) => (
-                  <table className="min-w-full border-collapse my-2 text-sm" {...props} />
-                ),
-                thead: ({ node, ...props }) => (
-                  <thead className="bg-zinc-900/60" {...props} />
-                ),
-                tbody: ({ node, ...props }) => <tbody {...props} />,
-                tr: ({ node, ...props }) => (
-                  <tr className="border-b border-zinc-700/60" {...props} />
-                ),
-                th: ({ node, ...props }) => (
-                  <th className="px-3 py-2 text-left font-medium border border-zinc-700" {...props} />
-                ),
-                td: ({ node, ...props }) => (
-                  <td className="px-3 py-2 align-top border border-zinc-700" {...props} />
-                ),
-                a({ node, ...props }) {
-                  return (
-                    <a
-                      {...props}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:no-underline"
-                    />
-                  );
-                },
-              }}
-            >
-              {m.content}
-            </ReactMarkdown>
-          </div>
+          {isUser ? (
+            <div className="overflow-x-hidden">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                skipHtml
+                components={{
+                  p: ({ node, ...props }) => (
+                    <p className="whitespace-pre-wrap break-words leading-7" {...props} />
+                  ),
+                  table: ({ node, ...props }) => (
+                    <div className="overflow-x-auto -mx-4 sm:-mx-6 my-2">
+                      <table className="min-w-full border-collapse text-sm" {...props} />
+                    </div>
+                  ),
+                  thead: ({ node, ...props }) => (
+                    <thead className="bg-zinc-900/60" {...props} />
+                  ),
+                  tbody: ({ node, ...props }) => <tbody {...props} />,
+                  tr: ({ node, ...props }) => (
+                    <tr className="border-b border-zinc-700/60" {...props} />
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th className="px-3 py-2 text-left font-medium border border-zinc-700 break-words" {...props} />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td className="px-3 py-2 align-top border border-zinc-700 break-words" {...props} />
+                  ),
+                  img: ({ node, ...props }) => (
+                    <img className="max-w-full h-auto rounded" {...props} />
+                  ),
+                  code: ({ inline, className, children, ...props }) => (
+                    inline ? (
+                      <code className="px-1 py-0.5 rounded bg-zinc-800/80 border border-zinc-700 text-[0.9em]" {...props}>{children}</code>
+                    ) : (
+                      <pre className="overflow-x-auto p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-sm" {...props}>
+                        <code>{children}</code>
+                      </pre>
+                    )
+                  ),
+                  a({ node, ...props }) {
+                    return (
+                      <a
+                        {...props}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:no-underline break-words"
+                      />
+                    );
+                  },
+                }}
+              >
+                {m.content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-[72ch] px-4 sm:px-6">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                skipHtml
+                components={{
+                  p: ({ node, ...props }) => (
+                    <p className="whitespace-pre-wrap break-words leading-7" {...props} />
+                  ),
+                  table: ({ node, ...props }) => (
+                    <div className="overflow-x-auto -mx-4 sm:-mx-6 my-2">
+                      <table className="min-w-full border-collapse text-sm" {...props} />
+                    </div>
+                  ),
+                  thead: ({ node, ...props }) => (
+                    <thead className="bg-zinc-900/60" {...props} />
+                  ),
+                  tbody: ({ node, ...props }) => <tbody {...props} />,
+                  tr: ({ node, ...props }) => (
+                    <tr className="border-b border-zinc-700/60" {...props} />
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th className="px-3 py-2 text-left font-medium border border-zinc-700 break-words" {...props} />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td className="px-3 py-2 align-top border border-zinc-700 break-words" {...props} />
+                  ),
+                  img: ({ node, ...props }) => (
+                    <img className="max-w-full h-auto rounded" {...props} />
+                  ),
+                  code: ({ inline, className, children, ...props }) => (
+                    inline ? (
+                      <code className="px-1 py-0.5 rounded bg-zinc-800/80 border border-zinc-700 text-[0.9em]" {...props}>{children}</code>
+                    ) : (
+                      <pre className="overflow-x-auto p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-sm" {...props}>
+                        <code>{children}</code>
+                      </pre>
+                    )
+                  ),
+                  a({ node, ...props }) {
+                    return (
+                      <a
+                        {...props}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:no-underline break-words"
+                      />
+                    );
+                  },
+                }}
+              >
+                {m.content}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
       </div>
     );
