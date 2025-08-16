@@ -57,6 +57,29 @@ export default function Chat() {
     const saved = typeof window !== "undefined" ? localStorage.getItem("effort") : null;
     return (saved as Effort) || "medium";
   });
+  // Popover menu state and tempChat flag
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [tempChat, setTempChat] = useState<boolean>(() => {
+    try { return localStorage.getItem('temp_chat') === '1'; } catch { return false; }
+  });
+  // Wire up header menu button and close on outside click/Escape
+  useEffect(() => {
+    const btn = document.getElementById('model-menu-toggle');
+    const onClick = () => setMenuOpen(v => !v);
+    btn?.addEventListener('click', onClick);
+    const onDoc = (e: MouseEvent) => {
+      const m = document.getElementById('model-menu');
+      if (menuOpen && m && !m.contains(e.target as Node) && e.target !== btn) setMenuOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      btn?.removeEventListener('click', onClick);
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [menuOpen]);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -115,14 +138,18 @@ export default function Chat() {
       setHasContext(false);
       setConversationId(id);
       if (id) {
-        try { localStorage.setItem("conversationId", id); } catch {}
+        if (!tempChat) {
+          try { localStorage.setItem("conversationId", id); } catch {}
+        }
       }
     } catch (err) {
       console.error("Error creating conversation:", err);
       setMessages([]);
       setHasContext(false);
       setConversationId(null);
-      try { localStorage.removeItem("conversationId"); } catch {}
+      if (!tempChat) {
+        try { localStorage.removeItem("conversationId"); } catch {}
+      }
     }
   }
 
@@ -216,7 +243,9 @@ export default function Chat() {
       const cid = response.headers.get("X-Conversation-Id");
       if (cid && cid !== conversationId) {
         setConversationId(cid);
-        try { localStorage.setItem("conversationId", cid); } catch {}
+        if (!tempChat) {
+          try { localStorage.setItem("conversationId", cid); } catch {}
+        }
       }
 
       if (!response.ok || !response.body) {
@@ -245,25 +274,54 @@ export default function Chat() {
     }
   }
 
-  // Borderless, flowing message blocks
   function renderMessage(m: Message, i: number) {
-    const roleLabel = m.role === "user" ? "You" : "Assistant";
+    const isUser = m.role === "user";
     return (
-      <div key={i} className="my-6 px-1">
-        <div className="text-xs text-zinc-400 uppercase tracking-wide mb-2">{roleLabel}</div>
-        <ReactMarkdown
-          className="leading-7 text-zinc-100 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_pre]:bg-zinc-900/70 [&_pre]:p-3 [&_pre]:rounded-lg [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:border-zinc-700 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300"
-          remarkPlugins={[remarkGfm]}
-          skipHtml
-          linkTarget="_blank"
-          components={{
-            a({node, ...props}) {
-              return <a {...props} rel="noopener noreferrer" className="underline hover:no-underline" />;
-            }
-          }}
+      <div key={i} className={`my-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
+        <div
+            className={`max-w-[85%] leading-7 ${
+              isUser
+                ? "rounded-2xl px-4 py-3 shadow-sm bg-gray-500/20 text-zinc-100"
+                : "text-zinc-100"
+            }`}
         >
-          {m.content}
-        </ReactMarkdown>
+          <div className="overflow-x-auto">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              skipHtml
+              components={{
+                table: ({ node, ...props }) => (
+                  <table className="min-w-full border-collapse my-2 text-sm" {...props} />
+                ),
+                thead: ({ node, ...props }) => (
+                  <thead className="bg-zinc-900/60" {...props} />
+                ),
+                tbody: ({ node, ...props }) => <tbody {...props} />,
+                tr: ({ node, ...props }) => (
+                  <tr className="border-b border-zinc-700/60" {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="px-3 py-2 text-left font-medium border border-zinc-700" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="px-3 py-2 align-top border border-zinc-700" {...props} />
+                ),
+                a({ node, ...props }) {
+                  return (
+                    <a
+                      {...props}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:no-underline"
+                    />
+                  );
+                },
+              }}
+            >
+              {m.content}
+            </ReactMarkdown>
+          </div>
+        </div>
       </div>
     );
   }
@@ -273,7 +331,9 @@ export default function Chat() {
       const r = await fetch(`/.netlify/functions/chat?id=${encodeURIComponent(id)}`);
       const rows = await r.json();
       setConversationId(id);
-      try { localStorage.setItem("conversationId", id); } catch {}
+      if (!tempChat) {
+        try { localStorage.setItem("conversationId", id); } catch {}
+      }
       setMessages(Array.isArray(rows) ? (rows as Message[]) : []);
     } catch (e) {
       console.error("loadConversation error", e);
@@ -290,104 +350,82 @@ export default function Chat() {
   }, []);
 
     return (
-      <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] max-w-3xl mx-auto w-full px-2 md:px-0 text-zinc-100">
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 md:px-6 py-3">
-          <div className="w-14" /> {/* left spacer for balance */}
+      <div className="relative flex flex-col h-full max-h-[calc(100dvh-3rem)] mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 w-full text-zinc-100">
+        {/* Spacer under top bar */}
+        <div className="h-2 md:h-3" />
 
-          {/* centered controls */}
-          <div className="flex items-center justify-center gap-3 w-full">
-            {/* Desktop controls */}
-            <div className="hidden md:flex items-center justify-center gap-3">
-              <label className="text-sm text-zinc-300" htmlFor="model">Model</label>
-              <select
-                id="model"
-                value={modelId}
-                onChange={handleModelChange}
-                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-                disabled={isLoading}
-              >
-                {!MODEL_CHOICES.some(m => m.id === modelId) && (
-                  <option value={modelId}>{prettyModelLabel(modelId)}</option>
-                )}
-                {MODEL_CHOICES.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-
-              {/* Reasoning toggle (only for GPT-5) */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isGPT5) return;
-                  const next = !showEffort;
-                  setShowEffort(next);
-                  try { localStorage.setItem("effort_enabled", next ? "1" : "0"); } catch {}
-                }}
-                className={`h-9 px-3 rounded-md border text-sm
-                  ${isGPT5
-                    ? (showEffort
-                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                      : "border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700")
-                    : "border-zinc-800 bg-zinc-900 text-zinc-600 cursor-not-allowed"
-                  }`}
-                disabled={!isGPT5 || isLoading}
-                title={isGPT5 ? "Toggle reasoning options" : "Reasoning available only for GPT-5"}
-              >
-                Reasoning
-              </button>
-
-              {isGPT5 && showEffort && (
-                <>
-                  <label className="text-sm text-zinc-300" htmlFor="effort">Level</label>
-                  <select
-                    id="effort"
-                    value={effort}
-                    onChange={handleEffortChange}
-                    className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-                    disabled={isLoading}
-                  >
-                    {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-                  </select>
-                </>
-              )}
+        {menuOpen && (
+          <div id="model-menu" className="fixed z-50 top-16 left-1/2 -translate-x-1/2 w-80 rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur shadow-xl">
+            <div className="p-3">
+              <div className="text-sm font-medium mb-2">Reasoning</div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="rg"
+                    checked={showEffort && effort === 'minimal'}
+                    onChange={() => { setShowEffort(true); setEffort('minimal'); try{localStorage.setItem('effort','minimal'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                  />
+                  <div>
+                    <div>Minimal</div>
+                    <div className="text-xs text-zinc-400">Shortest thinking time</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="rg"
+                    checked={showEffort && effort === 'low'}
+                    onChange={() => { setShowEffort(true); setEffort('low'); try{localStorage.setItem('effort','low'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                  />
+                  <div>
+                    <div>Low</div>
+                    <div className="text-xs text-zinc-400">Faster answers</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="rg"
+                    checked={showEffort && effort === 'medium'}
+                    onChange={() => { setShowEffort(true); setEffort('medium'); try{localStorage.setItem('effort','medium'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                  />
+                  <div>
+                    <div>Medium</div>
+                    <div className="text-xs text-zinc-400">Balanced speed & quality</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="rg"
+                    checked={showEffort && effort === 'high'}
+                    onChange={() => { setShowEffort(true); setEffort('high'); try{localStorage.setItem('effort','high'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                  />
+                  <div>
+                    <div>High</div>
+                    <div className="text-xs text-zinc-400">Thinks longer for better answers</div>
+                  </div>
+                </label>
+              </div>
             </div>
-
-            {/* Mobile controls */}
-            <div className="flex md:hidden items-center justify-center gap-2">
-              <label className="text-sm text-zinc-300" htmlFor="model-m">Model</label>
-              <select
-                id="model-m"
-                value={modelId}
-                onChange={handleModelChange}
-                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-                disabled={isLoading}
-              >
-                {!MODEL_CHOICES.some(m => m.id === modelId) && (
-                  <option value={modelId}>{prettyModelLabel(modelId)}</option>
-                )}
-                {MODEL_CHOICES.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-
-              <label className="text-sm text-zinc-300" htmlFor="effort-mobile">Reasoning</label>
-              <select
-                id="effort-mobile"
-                value={effort}
-                onChange={handleEffortChange}
-                disabled={!/^gpt-5\b/i.test(modelId) || isLoading}
-                className="h-9 px-2 rounded-md border border-zinc-700 bg-zinc-800 text-sm text-zinc-100"
-              >
-                {REASONING.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-              </select>
+            <div className="px-3 pb-3">
+              <details className="group">
+                <summary className="text-sm cursor-pointer select-none text-zinc-300 flex items-center justify-between">
+                  Legacy models <span className="text-zinc-500 group-open:rotate-180 transition">▾</span>
+                </summary>
+                <div className="mt-2 space-y-1">
+                  {MODEL_CHOICES.map(m => (
+                    <button key={m.id} className={`w-full text-left text-sm px-2 py-1 rounded-md border border-transparent hover:border-zinc-700 ${modelId===m.id? 'bg-zinc-800' : ''}`}
+                      onClick={() => { setModelId(m.id); try{localStorage.setItem('model', m.id)}catch{}; setMenuOpen(false); }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </details>
             </div>
           </div>
-
-          {/* right cluster (New) */}
-          <div className="flex items-center gap-2">
-          </div>
-        </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6">
@@ -398,26 +436,38 @@ export default function Chat() {
         {/* Composer */}
         <form
           onSubmit={handleSubmit}
-          className="sticky bottom-0 left-0 right-0 flex items-end gap-2 px-4 md:px-6 py-3 bg-zinc-900/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60"
+          className="sticky bottom-0 left-0 right-0 px-4 md:px-6 pt-2 pb-3 bg-black-900/80 backdrop-blur supports-[backdrop-filter]:bg-black-900/60"
           style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
         >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => { setInput(e.target.value); autoSize(e.currentTarget); }}
-            onInput={(e) => autoSize(e.currentTarget)}
-            placeholder="Type your message…"
-            rows={1}
-            className="flex-1 max-h-40 resize-none px-3 py-2 border border-zinc-700 rounded-lg bg-zinc-800 text-zinc-100 leading-6 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-blue-300"
-          >
-            {isLoading ? "Sending…" : "Send"}
-          </button>
+          <div className="w-full bg-zinc-800/90 border border-zinc-700 rounded-3xl px-3 py-2 flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                autoSize(e.currentTarget);
+              }}
+              onInput={(e) => autoSize(e.currentTarget)}
+              placeholder="Ask anything…"
+              rows={1}
+              className="flex-1 max-h-40 resize-none bg-transparent border-0 focus:outline-none focus:ring-0 px-2 py-2 text-zinc-100 placeholder-zinc-400 leading-6"
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="ml-2 flex h-10 w-10 items-center justify-center rounded-md ring-1 ring-inset ring-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500 p-1"
+              title="Send"
+            >
+              {isLoading ? (
+                "…"
+              ) : (
+                <svg className="h-5 w-5 flex-shrink-0 block overflow-visible" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 3a1 1 0 0 1 .707.293l6 6a1 1 0 1 1-1.414 1.414L13 6.414V20a1 1 0 1 1-2 0V6.414l-4.293 4.293A1 1 0 0 1 5.293 9.293l6-6A1 1 0 0 1 12 3z"/>
+                </svg>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     );

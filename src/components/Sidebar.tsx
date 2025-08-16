@@ -16,7 +16,8 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
     try {
       const res = await fetch("/.netlify/functions/conversations", { method: "GET" });
       const list: ConvMeta[] = await res.json();
-      setItems(list);
+      const sorted = Array.isArray(list) ? [...list].sort((a, b) => b.updatedAt - a.updatedAt) : [];
+      setItems(sorted);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -25,15 +26,15 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
   }
     const [editingId, setEditingId] = useState<string | null>(null);
     const [tempTitle, setTempTitle] = useState<string>("");
-    
+
     useEffect(() => {
       function onUpdated() { fetchList(); }
       window.addEventListener("conversations-updated", onUpdated);
       return () => window.removeEventListener("conversations-updated", onUpdated);
     }, []);
-    
+
     useEffect(() => { fetchList(); }, []);
-    
+
   async function newChat() {
     try {
       const res = await fetch("/.netlify/functions/conversations", {
@@ -78,15 +79,26 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
     } catch {}
   }
 
+  function formatUpdatedAt(ts: number) {
+    try {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ts));
+    } catch {
+      return new Date(ts).toLocaleString();
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-        <div className="text-sm font-semibold">Conversations</div>
+      <div className="h-12 px-3 border-b border-zinc-800 flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wide text-zinc-400">Conversations</div>
         <button
           type="button"
-          className="px-2 py-1 text-xs rounded-md border border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
           onClick={newChat}
-        >New</button>
+          title="New chat"
+          aria-label="New chat"
+        >+
+        </button>
       </div>
 
       <div className="p-2">
@@ -94,7 +106,7 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
         {error && <div className="text-xs text-red-600">{error}</div>}
         <nav className="space-y-1 text-sm">
           {items.map(item => (
-            <div key={item.id} className="flex items-center gap-2">
+            <div key={item.id} className="group flex items-center gap-2 rounded-md px-1">
               {editingId === item.id ? (
                 <form
                   className="flex-1"
@@ -141,24 +153,30 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
               ) : (
                 <>
                   <a
-                    className={`flex-1 block px-3 py-2 rounded-lg hover:bg-zinc-800 ${activeId===item.id? 'bg-zinc-800' : ''}`}
+                    className={`flex-1 block px-3 py-2 rounded-md transition-colors ${
+                      activeId===item.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/60'
+                    } focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400`}
                     href="#"
                     onClick={(e)=>{e.preventDefault(); openChat(item.id);}}
-                    title={new Date(item.updatedAt).toLocaleString()}
+                    title={formatUpdatedAt(item.updatedAt)}
                   >
                     <div className="truncate text-zinc-200">{item.title || 'New chat'}</div>
-                    <div className="text-xs text-zinc-400">{item.model}</div>
+                    <div className="text-[11px] text-zinc-400">{item.model}</div>
                   </a>
-                  <button
-                    className="text-xs px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800"
-                    onClick={() => { setEditingId(item.id); setTempTitle(item.title || "New chat"); }}
-                    title="Rename"
-                  >Edit</button>
-                  <button
-                    className="text-xs px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800"
-                    onClick={()=>deleteChat(item.id)}
-                    title="Delete"
-                  >✕</button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      className="h-7 w-7 rounded-md border border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+                      onClick={() => { setEditingId(item.id); setTempTitle(item.title || 'New chat'); }}
+                      title="Rename"
+                      aria-label="Rename"
+                    >✎</button>
+                    <button
+                      className="h-7 w-7 rounded-md border border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+                      onClick={()=>deleteChat(item.id)}
+                      title="Delete"
+                      aria-label="Delete"
+                    >✕</button>
+                  </div>
                 </>
               )}
             </div>
