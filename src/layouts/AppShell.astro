@@ -7,14 +7,18 @@ import Sidebar from "../components/Sidebar.tsx";
 <html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>LocalGPT</title>
     <!-- Dark-mode bootstrap (no flash) -->
     <script is:inline>
       (function(){ try { document.documentElement.classList.add('dark'); } catch {} })();
     </script>
-
+<style>
+  input, select, textarea { font-size: 16px; }
+  /* Avoid “smart” text resizing that can look like zoom: */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+</style>
     <style is:inline>
       @media (min-width: 768px) {
         .appgrid { grid-template-columns: 280px 1fr; }
