@@ -156,14 +156,21 @@ import Sidebar from "../components/Sidebar.tsx";
       window.addEventListener('open-conversation', () => closeDrawer());
     })();
 
-    // Update the model label from localStorage
-    function updateModelLabel() {
-      const model = localStorage.getItem('model') || 'gpt-5';
-      let label = model;
-      if (model.startsWith('gpt-5')) label = 'ChatGPT 5';
-      else if (model.startsWith('gpt-4.1')) label = 'GPT 4.1';
-      else if (model.startsWith('o3')) label = 'o3';
-      document.getElementById('model-label').textContent = label;
+    // Update the model label from event payload (if present) or localStorage
+    function updateModelLabel(e) {
+      // Prefer event detail if provided
+      const fromEvent = e && e.detail ? e.detail : null;
+      let model = (fromEvent && (fromEvent.id || fromEvent.model)) || localStorage.getItem('model') || 'gpt-5';
+      let label = fromEvent && fromEvent.label ? fromEvent.label : model;
+
+      if (!fromEvent || !fromEvent.label) {
+        if (model.startsWith('gpt-5')) label = 'ChatGPT 5';
+        else if (model.startsWith('gpt-4.1')) label = 'GPT 4.1';
+        else if (model.startsWith('o3')) label = 'o3';
+      }
+
+      const el = document.getElementById('model-label');
+      if (el) el.textContent = label;
 
       const reasoningSection = document.getElementById('reasoning-section');
       if (reasoningSection) {
@@ -175,13 +182,23 @@ import Sidebar from "../components/Sidebar.tsx";
     function setModel(model) {
       try {
         localStorage.setItem('model', model);
-        updateModelLabel();
       } catch (e) { console.error('failed to save model', e); }
-      // Dispatch custom event for other components if needed
-      window.dispatchEvent(new CustomEvent('model-changed', { detail: { model } }));
+
+      // Derive a pretty label (keep in sync with updateModelLabel fallback)
+      let label = model;
+      if (model.startsWith('gpt-5')) label = 'ChatGPT 5';
+      else if (model.startsWith('gpt-4.1')) label = 'GPT 4.1';
+      else if (model.startsWith('o3')) label = 'o3';
+
+      // Update immediately
+      updateModelLabel({ detail: { id: model, label } });
+
+      // Notify other components (and keep schema in sync with Chat.tsx)
+      window.dispatchEvent(new CustomEvent('model-changed', { detail: { id: model, label } }));
     }
     updateModelLabel();
     window.addEventListener('storage', updateModelLabel);
+    window.addEventListener('model-changed', updateModelLabel);
   </script>
   </body>
 </html>

@@ -211,6 +211,13 @@ export default function Chat() {
       const next = e.target.value as ModelId;
       setModelId(next);
       try { localStorage.setItem("model", next); } catch {}
+
+      // Notify other UI (e.g., header) to update immediately
+      try {
+        const label = prettyModelLabel(String(next));
+        window.dispatchEvent(new CustomEvent("model-changed", { detail: { id: String(next), label } }));
+      } catch {}
+
       if (!/^gpt-5\b/i.test(next)) {
         setShowEffort(false);
         try { localStorage.setItem("effort_enabled", "0"); } catch {}
