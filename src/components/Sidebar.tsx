@@ -163,7 +163,7 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
                     <div className="truncate text-zinc-200">{item.title || 'New chat'}</div>
                     <div className="text-[11px] text-zinc-400">{item.model}</div>
                   </a>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
                     <button
                       className="h-7 w-7 rounded-md border border-zinc-700 hover:bg-zinc-800 text-zinc-300"
                       onClick={() => { setEditingId(item.id); setTempTitle(item.title || 'New chat'); }}
