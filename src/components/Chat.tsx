@@ -24,7 +24,7 @@ const REASONING = [
   { id: "medium",  label: "Medium" },
   { id: "high",    label: "High" },
 ] as const;
-type Effort = typeof REASONING[number]["id"];
+type Effort = (typeof REASONING)[number]["id"];
 
 // Fallback pretty label if we ever load an unknown ID from storage
 function prettyModelLabel(id: string): string {
@@ -321,10 +321,10 @@ export default function Chat() {
               {m.content}
             </ReactMarkdown>
           </div>
+        </div>
       </div>
     );
   }
-
   async function loadConversation(id: string) {
     try {
       const r = await fetch(`/.netlify/functions/chat?id=${encodeURIComponent(id)}`);
