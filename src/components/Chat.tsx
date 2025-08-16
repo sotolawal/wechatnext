@@ -12,7 +12,7 @@ interface Message {
 // Friendly labels shown to the user, exact IDs sent to backend
 const MODEL_CHOICES = [
   { id: "gpt-5-2025-08-07",            label: "GPT‑5" },
-  { id: "o3-deep-research-2025-06-26", label: "o3 Deep Research" },
+  { id: "gpt-5-nano-2025-08-07",       label: "GPT-5 nano" },
   { id: "gpt-4.1-2025-04-14",          label: "GPT‑4.1" },
 ] as const;
 type ModelId = (typeof MODEL_CHOICES)[number]["id"] | string;
@@ -418,7 +418,7 @@ export default function Chat() {
             <div className="px-3 pb-3">
               <details className="group">
                 <summary className="text-sm cursor-pointer select-none text-zinc-300 flex items-center justify-between">
-                  Legacy models <span className="text-zinc-500 group-open:rotate-180 transition">▾</span>
+                  More models <span className="text-zinc-500 group-open:rotate-180 transition">▾</span>
                 </summary>
                 <div className="mt-2 space-y-1">
                   {MODEL_CHOICES.map(m => (
