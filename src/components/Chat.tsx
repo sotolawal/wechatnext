@@ -301,7 +301,7 @@ export default function Chat() {
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
-                    <p className="whitespace-pre-wrap break-words leading-7 my-3" {...props} />
+                    <p className="whitespace-pre-wrap break-words leading-7" {...props} />
                   ),
                   ul: ({ node, ...props }) => (
                     <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
