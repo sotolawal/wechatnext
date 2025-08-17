@@ -61,12 +61,15 @@ import Sidebar from "../components/Sidebar.tsx";
             <button
               id="model-menu-toggle"
               type="button"
-              class="text-sm text-zinc-300 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-zinc-800/60 border border-transparent hover:border-zinc-700 cursor-pointer"
+              class="text-sm text-zinc-300 inline-flex group items-center gap-1 px-2 py-1 rounded-md hover:bg-zinc-800/60 border border-transparent hover:border-zinc-700 cursor-pointer"
               title="Model & reasoning"
               aria-haspopup="dialog"
               aria-expanded="false"
             >
-              <span id="model-label">ChatGPT 5</span> <span aria-hidden>▾</span>
+              <span id="model-label">ChatGPT 5</span>
+              <svg class="inline-block h-4 w-4 md:h-5 md:w-5 shrink-0 text-zinc-400 transition-transform group-[aria-expanded='true']:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </button>
           </div>
 

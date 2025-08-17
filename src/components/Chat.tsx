@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypePrism from "rehype-prism-plus"; 
+import rehypePrism from "rehype-prism-plus";
 
 // Message shape
 interface Message {
@@ -489,65 +489,75 @@ export default function Chat() {
 
         {menuOpen && (
           <div id="model-menu" className="fixed z-50 top-16 left-1/2 -translate-x-1/2 w-80 rounded-xl border border-zinc-800 bg-zinc-900/95 backdrop-blur shadow-xl">
-            <div className="p-3">
-              <div className="text-sm font-medium mb-2">Reasoning</div>
-              <div className="space-y-1">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="rg"
-                    checked={showEffort && effort === 'minimal'}
-                    onChange={() => { setShowEffort(true); setEffort('minimal'); try{localStorage.setItem('effort','minimal'); localStorage.setItem('effort_enabled','1');}catch{}; }}
-                  />
-                  <div>
-                    <div>Minimal</div>
-                    <div className="text-xs text-zinc-400">Shortest thinking time</div>
+            {isGPT5 && (
+              <div className="px-3 pt-3 mb-2">
+                <details className="group">
+                  <summary className="w-full text-sm cursor-pointer select-none text-zinc-300 flex items-center justify-center gap-1 py-1.5 rounded-md border border-zinc-800 bg-zinc-900/60 text-center [&::-webkit-details-marker]:hidden">
+                    Reasoning <svg className="inline-block h-4 w-4 md:h-5 md:w-5 shrink-0 text-zinc-400 group-open:rotate-180 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="rg"
+                        checked={showEffort && effort === 'minimal'}
+                        onChange={() => { setShowEffort(true); setEffort('minimal'); try{localStorage.setItem('effort','minimal'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                      />
+                      <div>
+                        <div>Minimal</div>
+                        <div className="text-xs text-zinc-400">Shortest thinking time</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="rg"
+                        checked={showEffort && effort === 'low'}
+                        onChange={() => { setShowEffort(true); setEffort('low'); try{localStorage.setItem('effort','low'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                      />
+                      <div>
+                        <div>Low</div>
+                        <div className="text-xs text-zinc-400">Faster answers</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="rg"
+                        checked={showEffort && effort === 'medium'}
+                        onChange={() => { setShowEffort(true); setEffort('medium'); try{localStorage.setItem('effort','medium'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                      />
+                      <div>
+                        <div>Medium</div>
+                        <div className="text-xs text-zinc-400">Balanced speed & quality</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="rg"
+                        checked={showEffort && effort === 'high'}
+                        onChange={() => { setShowEffort(true); setEffort('high'); try{localStorage.setItem('effort','high'); localStorage.setItem('effort_enabled','1');}catch{}; }}
+                      />
+                      <div>
+                        <div>High</div>
+                        <div className="text-xs text-zinc-400">Thinks longer for better answers</div>
+                      </div>
+                    </label>
                   </div>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="rg"
-                    checked={showEffort && effort === 'low'}
-                    onChange={() => { setShowEffort(true); setEffort('low'); try{localStorage.setItem('effort','low'); localStorage.setItem('effort_enabled','1');}catch{}; }}
-                  />
-                  <div>
-                    <div>Low</div>
-                    <div className="text-xs text-zinc-400">Faster answers</div>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="rg"
-                    checked={showEffort && effort === 'medium'}
-                    onChange={() => { setShowEffort(true); setEffort('medium'); try{localStorage.setItem('effort','medium'); localStorage.setItem('effort_enabled','1');}catch{}; }}
-                  />
-                  <div>
-                    <div>Medium</div>
-                    <div className="text-xs text-zinc-400">Balanced speed & quality</div>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="rg"
-                    checked={showEffort && effort === 'high'}
-                    onChange={() => { setShowEffort(true); setEffort('high'); try{localStorage.setItem('effort','high'); localStorage.setItem('effort_enabled','1');}catch{}; }}
-                  />
-                  <div>
-                    <div>High</div>
-                    <div className="text-xs text-zinc-400">Thinks longer for better answers</div>
-                  </div>
-                </label>
+                </details>
               </div>
-            </div>
-            <div className="px-3 pb-3">
+            )}
+            <div className="px-3 py-3">
               <details className="group">
-                <summary className="text-sm cursor-pointer select-none text-zinc-300 flex items-center justify-between">
-                  More models <span className="text-zinc-500 group-open:rotate-180 transition">▾</span>
+                <summary className="w-full text-sm cursor-pointer select-none text-zinc-300 flex items-center justify-center gap-1 py-1.5 rounded-md border border-zinc-800 bg-zinc-900/60 text-center [&::-webkit-details-marker]:hidden">
+                  More models <svg className="inline-block h-4 w-4 md:h-5 md:w-5 shrink-0 text-zinc-400 group-open:rotate-180 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
                 </summary>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-2">
                   {MODEL_CHOICES.map(m => (
                     <button key={m.id} className={`w-full text-left text-sm px-2 py-1 rounded-md border border-transparent hover:border-zinc-700 ${modelId===m.id? 'bg-zinc-800' : ''}`}
                       onClick={() => { selectModel(m.id); setMenuOpen(false); }}>
