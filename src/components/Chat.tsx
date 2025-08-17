@@ -207,6 +207,39 @@ export default function Chat() {
   }
  
     
+  // Change active model, persist, and notify UI
+  async function selectModel(next: ModelId) {
+    setModelId(next);
+    try { localStorage.setItem("model", String(next)); } catch {}
+
+    // Notify header/other components immediately
+    try {
+      const label = prettyModelLabel(String(next));
+      window.dispatchEvent(new CustomEvent("model-changed", { detail: { id: String(next), label } }));
+    } catch {}
+
+    // Disable effort UI if not GPT-5
+    if (!/^gpt-5\b/i.test(String(next))) {
+      setShowEffort(false);
+      try { localStorage.setItem("effort_enabled", "0"); } catch {}
+    }
+
+    // Persist model on the active conversation (if any)
+    if (conversationId) {
+      try {
+        await fetch("/.netlify/functions/conversations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: conversationId, model: String(next) }),
+        });
+        // Let sidebar refresh if it listens for this
+        window.dispatchEvent(new CustomEvent("conversations-updated"));
+      } catch (e) {
+        console.warn("model patch failed", e);
+      }
+    }
+  }
+
  //On model change, disable reasoning selection
     function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>) {
       const next = e.target.value as ModelId;
@@ -517,7 +550,7 @@ export default function Chat() {
                 <div className="mt-2 space-y-1">
                   {MODEL_CHOICES.map(m => (
                     <button key={m.id} className={`w-full text-left text-sm px-2 py-1 rounded-md border border-transparent hover:border-zinc-700 ${modelId===m.id? 'bg-zinc-800' : ''}`}
-                      onClick={() => { setModelId(m.id); try{localStorage.setItem('model', m.id)}catch{}; setMenuOpen(false); }}>
+                      onClick={() => { selectModel(m.id); setMenuOpen(false); }}>
                       {m.label}
                     </button>
                   ))}

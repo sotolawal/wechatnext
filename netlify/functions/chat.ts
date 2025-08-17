@@ -129,13 +129,16 @@ export default async function (req: Request, _ctx: Context) {
     }
 
     // Determine conversation id
-    let id = (typeof conversationId === "string" && conversationId.trim())
+    const baseId = (typeof conversationId === "string" && conversationId.trim())
       ? conversationId.trim()
       : crypto.randomUUID();
-    const blobKey = keyFor(id);
 
+    // If client requests a new conversation, ALWAYS mint a brand-new id
+    let id = baseId;
     if (newConversation) {
-      await store.set(blobKey, JSON.stringify([]));
+      id = crypto.randomUUID();
+      const newKey = keyFor(id);
+      await store.set(newKey, JSON.stringify([]));
       return new Response("OK", {
         status: 200,
         headers: {
@@ -144,6 +147,8 @@ export default async function (req: Request, _ctx: Context) {
         },
       });
     }
+
+    const blobKey = keyFor(id);
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return new Response(

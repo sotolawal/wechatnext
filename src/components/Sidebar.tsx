@@ -33,14 +33,23 @@ export default function Sidebar({ onSelect }: { onSelect?: (id: string) => void 
       return () => window.removeEventListener("conversations-updated", onUpdated);
     }, []);
 
+    useEffect(() => {
+      function onModelChanged() { fetchList(); }
+      window.addEventListener("model-changed", onModelChanged);
+      return () => window.removeEventListener("model-changed", onModelChanged);
+    }, []);
+
     useEffect(() => { fetchList(); }, []);
 
   async function newChat() {
     try {
+      const modelFromStorage = (() => {
+        try { return localStorage.getItem("model") || "gpt-5-2025-08-07"; } catch { return "gpt-5-2025-08-07"; }
+      })();
       const res = await fetch("/.netlify/functions/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New chat", model: "gpt-5-2025-08-07" }),
+        body: JSON.stringify({ title: "New chat", model: modelFromStorage }),
       });
       const data = await res.json().catch(() => ({} as any));
       const id = data?.id as string | undefined;

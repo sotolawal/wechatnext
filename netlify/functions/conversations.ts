@@ -107,10 +107,13 @@ export default async function (req: Request, _ctx: Context) {
       let body: any = {};
       try { body = await req.json(); } catch {}
       const id = String(body?.id || "");
-      const title = String(body?.title || "").slice(0, 60);
+      const rawTitle = (typeof body?.title === "string" ? body.title : undefined);
+      const rawModel = (typeof body?.model === "string" ? body.model : undefined);
+      const title = typeof rawTitle === "string" ? rawTitle.slice(0, 60) : undefined;
+      const model = typeof rawModel === "string" ? rawModel : undefined;
 
-      if (!id || !title) {
-        return new Response(JSON.stringify({ error: "id and title required" }), {
+      if (!id || (!title && !model)) {
+        return new Response(JSON.stringify({ error: "id and one of {title, model} required" }), {
           status: 400,
           headers: { "Content-Type": "application/json" },
         });
@@ -118,12 +121,24 @@ export default async function (req: Request, _ctx: Context) {
 
       const list = await loadIndex(store);
       const idx = list.findIndex((x) => x.id === id);
-      if (idx >= 0) {
-        list[idx].title = title;
-        list[idx].updatedAt = Date.now();
-        await saveIndex(store, list);
+      if (idx < 0) {
+        return new Response(JSON.stringify({ error: "not_found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
       }
-      return new Response("OK", { status: 200 });
+
+      // Update fields
+      const now = Date.now();
+      if (title !== undefined) list[idx].title = title;
+      if (model !== undefined) list[idx].model = model;
+      list[idx].updatedAt = now;
+      await saveIndex(store, list);
+
+      return new Response(JSON.stringify(list[idx]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     if (method === "DELETE") {
