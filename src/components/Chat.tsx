@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypePrism from "rehype-prism-plus"; 
 
 // Message shape
 interface Message {
@@ -296,6 +297,7 @@ export default function Chat() {
             <div className="overflow-x-hidden">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypePrism]}
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
@@ -359,6 +361,7 @@ export default function Chat() {
             <div className="mx-auto max-w-[88ch] px-2 sm:px-3 md:px-4">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypePrism]}
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
