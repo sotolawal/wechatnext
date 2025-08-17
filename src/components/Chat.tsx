@@ -299,7 +299,16 @@ export default function Chat() {
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
-                    <p className="whitespace-pre-wrap break-words leading-7" {...props} />
+                    <p className="whitespace-pre-wrap break-words leading-7 my-3" {...props} />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal pl-6 space-y-2 my-3" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="ml-1 [&>p]:my-0 whitespace-pre-wrap" {...props} />
                   ),
                   table: ({ node, ...props }) => (
                     <div className="overflow-x-auto -mx-4 sm:-mx-6 my-2">
@@ -353,7 +362,16 @@ export default function Chat() {
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
-                    <p className="whitespace-pre-wrap break-words leading-7" {...props} />
+                    <p className="whitespace-pre-wrap break-words leading-7 my-3" {...props} />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal pl-6 space-y-2 my-3" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="ml-1 [&>p]:my-0 whitespace-pre-wrap" {...props} />
                   ),
                   table: ({ node, ...props }) => (
                       <div className="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 my-2">
