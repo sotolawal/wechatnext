@@ -212,7 +212,7 @@ export default async function (req: Request, _ctx: Context) {
 
           try {
             // Flush headers immediately to avoid 502/“status 0” if later errors happen
-            controller.enqueue(enc.encode(""));
+            controller.enqueue(enc.encode("\n"));
 
             for await (const chunk of stream) {
               const delta = chunk.choices?.[0]?.delta?.content ?? "";
