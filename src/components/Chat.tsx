@@ -84,7 +84,34 @@ export default function Chat() {
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+    // Smart scroll logic
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    function handleScroll() {
+      const threshold = 40;
+      const atBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+      setIsAtBottom(atBottom);
+    }
+
+    container.addEventListener("scroll", handleScroll);
+    handleScroll(); // initialize
+
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (isAtBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isAtBottom]);
 
   // Effects
   useEffect(() => {
@@ -337,10 +364,10 @@ export default function Chat() {
                     <p className="whitespace-pre-wrap break-words leading-7" {...props} />
                   ),
                   ul: ({ node, ...props }) => (
-                    <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
+                    <ul className="list-disc pl-6 space-y-2 mb-3" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="list-decimal pl-6 space-y-2 my-3" {...props} />
+                    <ol className="list-decimal pl-6 space-y-2 mb-3" {...props} />
                   ),
                   li: ({ node, ...props }) => (
                     <li className="ml-1 [&>p]:my-0 whitespace-pre-wrap" {...props} />
@@ -398,13 +425,13 @@ export default function Chat() {
                 skipHtml
                 components={{
                   p: ({ node, ...props }) => (
-                    <p className="whitespace-pre-wrap break-words leading-7 my-3" {...props} />
+                    <p className="whitespace-pre-wrap break-words leading-7 mb-3" {...props} />
                   ),
                   ul: ({ node, ...props }) => (
-                    <ul className="list-disc pl-6 space-y-2 my-3" {...props} />
+                    <ul className="list-disc pl-6 space-y-2 mb-3" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="list-decimal pl-6 space-y-2 my-3" {...props} />
+                    <ol className="list-decimal pl-6 space-y-2 mb-3" {...props} />
                   ),
                   li: ({ node, ...props }) => (
                     <li className="ml-1 [&>p]:my-0 whitespace-pre-wrap" {...props} />
@@ -413,6 +440,9 @@ export default function Chat() {
                       <div className="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 my-2">
                       <table className="min-w-full border-collapse text-sm" {...props} />
                     </div>
+                  ),
+                  hr: ({ node, ...props }) => (
+                    <hr className="my-6 border-t border-zinc-700" {...props} />
                   ),
                   thead: ({ node, ...props }) => (
                     <thead className="bg-zinc-900/60" {...props} />
@@ -571,7 +601,7 @@ export default function Chat() {
         )}
 
         {/* Messages */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 md:px-3 lg:px-4 py-6">
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-2 md:px-3 lg:px-4 py-6">
           {messages.map(renderMessage)}
           <div ref={messagesEndRef} />
         </div>
