@@ -12,9 +12,9 @@ interface Message {
 
 // Friendly labels shown to the user, exact IDs sent to backend
 const MODEL_CHOICES = [
+  { id: "gpt-4.1-2025-04-14",          label: "GPT‑4.1" },
   { id: "gpt-5-2025-08-07",            label: "GPT‑5" },
   { id: "gpt-5-nano-2025-08-07",       label: "GPT-5 nano" },
-  { id: "gpt-4.1-2025-04-14",          label: "GPT‑4.1" },
 ] as const;
 type ModelId = (typeof MODEL_CHOICES)[number]["id"] | string;
 
