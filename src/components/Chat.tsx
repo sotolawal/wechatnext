@@ -431,7 +431,7 @@ export default function Chat() {
                     <ul className="list-disc list-inside pl-6 mb-3" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-inside pl-6 mb-3" {...props} />
+                    <ol className="list-decimal list-outside pl-6 mb-3" {...props} />
                   ),
                   li: ({ node, children, ...props }) => (
                     <li className="align-top whitespace-pre-wrap my-1" {...props}>
