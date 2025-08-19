@@ -428,7 +428,7 @@ export default function Chat() {
                     <p className="whitespace-pre-wrap break-words leading-7 mb-3" {...props} />
                   ),
                   ul: ({ node, ...props }) => (
-                    <ul className="list-disc pl-6 space-y-2 mb-3" {...props} />
+                    <ul className="list-disc pl-6 mb-3" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
                     <ol className="list-decimal pl-6 mb-3" {...props} />
