@@ -424,6 +424,18 @@ export default function Chat() {
                 rehypePlugins={[rehypePrism]}
                 skipHtml
                 components={{
+                   // custom <p> handler
+                    p: ({ node, ...props }) => {
+                  // detect if parent is a list item
+                      if (node?.position?.start && node?.position?.end) {
+                      const parent = node?.parent || node?.position?.parent
+                      if (parent && parent.tagName === "li") {
+                      // render inline span if inside <li>
+                      return <span {...props} />;
+                      }
+                    }
+                  return <p className="whitespace-pre-wrap break-words leading-7 mb-3" {...props} />;
+                  },
                   p: ({ node, ...props }) => (
                     <p className="whitespace-pre-wrap break-words leading-7 mb-3" {...props} />
                   ),
