@@ -431,10 +431,12 @@ export default function Chat() {
                     <ul className="list-disc pl-6 space-y-2 mb-3" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="list-decimal pl-6 space-y-2 mb-3" {...props} />
+                    <ol className="list-decimal pl-6 mb-3" {...props} />
                   ),
-                  li: ({ node, ...props }) => (
-                    <li className="ml-1 align-top whitespace-pre-wrap" {...props} />
+                  li: ({ node, children, ...props }) => (
+                    <li className="align-top whitespace-pre-wrap my-1" {...props}>
+                    {children}
+                    </li>
                   ),
                   table: ({ node, ...props }) => (
                       <div className="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 my-2">
