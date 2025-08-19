@@ -444,7 +444,7 @@ export default function Chat() {
                     </div>
                   ),
                   hr: ({ node, ...props }) => (
-                    <hr className="my-6 border-t border-zinc-700" {...props} />
+                    <hr className="mb-6 border-t border-zinc-700" {...props} />
                   ),
                   thead: ({ node, ...props }) => (
                     <thead className="bg-zinc-900/60" {...props} />
